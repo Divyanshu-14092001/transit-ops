@@ -9,40 +9,29 @@ class DevAuditView extends GetView<DashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    final Set<String> activePerms = AccessControlService.to.hasPermission('vehicle:create')
-        ? <String>{
-            'dashboard:view',
-            'vehicle:read', 'vehicle:create', 'vehicle:update', 'vehicle:delete',
-            'driver:read', 'driver:create', 'driver:update', 'driver:delete',
-            'trip:read', 'trip:create', 'trip:dispatch', 'trip:complete', 'trip:cancel',
-            'maintenance:read', 'maintenance:create', 'maintenance:update', 'maintenance:close',
-            'fuel:create', 'expense:create', 'report:view', 'report:export',
-          }
-        : <String>{'dashboard:view', 'trip:read', 'trip:complete', 'fuel:create'};
+    final List<String> activePerms = AccessControlService.to.permissions.toList()
+      ..sort();
 
     final Map<String, String> permDescriptions = <String, String>{
-      'dashboard:view': 'Core dashboard visualization page access',
-      'vehicle:read': 'Access registered vehicles listing and queries',
-      'vehicle:create': 'Permit registration of new fleet inventory',
-      'vehicle:update': 'Modify status profiles or routes of vehicles',
-      'vehicle:delete': 'Permit removal of vehicle entries',
-      'driver:read': 'Access registered drivers directory and details',
-      'driver:create': 'Permit registration of new driver profiles',
-      'driver:update': 'Modify status profiles or license data of drivers',
-      'driver:delete': 'Permit removal of driver entries',
-      'trip:read': 'Read active dispatch routes logs',
-      'trip:create': 'Schedule dispatches for drivers and vehicles',
-      'trip:dispatch': 'Approve and dispatch outbound shipments',
-      'trip:complete': 'Log trip metrics upon final arrival',
-      'trip:cancel': 'Cancel pending or interrupted dispatches',
-      'maintenance:read': 'Query service schedules and workshop orders',
-      'maintenance:create': 'Initiate breakdown or periodic orders',
-      'maintenance:update': 'Log parts used or technicians details',
-      'maintenance:close': 'Approve maintenance completion and return to active fleet',
-      'fuel:create': 'Record gas mileage, fills, and receipts',
-      'expense:create': 'Record general operating expenditures',
-      'report:view': 'Compile analytical and performance reports',
-      'report:export': 'Export database records to PDF/CSV spreadsheets',
+      BackendPermissions.authRead: 'Read auth configuration',
+      BackendPermissions.authManage: 'Manage authentication',
+      BackendPermissions.organizationCreate: 'Create organizations',
+      BackendPermissions.organizationRead: 'Read organizations',
+      BackendPermissions.organizationUpdate: 'Update organizations',
+      BackendPermissions.fleetCreate: 'Create fleets',
+      BackendPermissions.fleetRead: 'Read fleets',
+      BackendPermissions.fleetUpdate: 'Update fleets',
+      BackendPermissions.fleetDelete: 'Delete fleets',
+      BackendPermissions.driverAssign: 'Assign drivers',
+      BackendPermissions.tripCreate: 'Create trips',
+      BackendPermissions.tripAssign: 'Assign trips',
+      BackendPermissions.tripUpdate: 'Update trips',
+      BackendPermissions.maintenanceCreate: 'Create maintenance records',
+      BackendPermissions.fuelCreate: 'Log fuel records',
+      BackendPermissions.expenseCreate: 'Log expenses',
+      BackendPermissions.expenseApprove: 'Approve expenses',
+      BackendPermissions.reportRead: 'Read reports',
+      BackendPermissions.reportExport: 'Export reports',
     };
 
     int slCount = 1;
@@ -76,13 +65,7 @@ class DevAuditView extends GetView<DashboardController> {
                 DataCell(Text(desc)),
                 DataCell(Text(resource)),
                 DataCell(Text(action)),
-                DataCell(Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () {}),
-                    IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red), onPressed: () {}),
-                  ],
-                )),
+                const DataCell(Icon(Icons.verified_outlined, size: 18)),
               ]);
             }).toList(),
           ),

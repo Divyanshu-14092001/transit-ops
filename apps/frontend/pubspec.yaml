@@ -19,6 +19,10 @@ dependencies:
   # Networking
   dio: ^5.4.1
 
+  # Persistent session storage
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.5.3
+
   # Google Fonts for modern design aesthetics
   google_fonts: ^6.1.0
 

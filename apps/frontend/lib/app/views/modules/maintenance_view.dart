@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/access_control.dart';
+import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../controllers/dashboard_controller.dart';
 import 'dashboard_helpers.dart';
@@ -20,7 +21,7 @@ class MaintenanceView extends GetView<DashboardController> {
       child: DashboardCard(
         title: 'Scheduled maintenance orders',
         trailing: AccessControl(
-          permission: 'maintenance:create',
+          permission: BackendPermissions.maintenanceCreate,
           child: AppButton(
             label: 'Schedule Service',
             icon: Icons.add,

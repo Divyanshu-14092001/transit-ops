@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/access_control.dart';
+import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/responsive_layout.dart';
 import '../../controllers/dashboard_controller.dart';
@@ -37,7 +38,7 @@ class ExpensesView extends GetView<DashboardController> {
           DashboardCard(
             title: 'Recent financial transactions',
             trailing: AccessControl(
-              permission: 'fuel:create',
+              permission: BackendPermissions.expenseCreate,
               child: AppButton(label: 'Log Fuel/Expense', icon: Icons.add, onPressed: () => showActionSnackbar('Log Expense Form Opened')),
             ),
             child: SingleChildScrollView(

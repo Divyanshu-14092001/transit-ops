@@ -17,8 +17,10 @@ class _SplashViewState extends State<SplashView> {
   }
 
   Future<void> _navigateToNext() async {
-    // Standard boot load time
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    await Future.wait<dynamic>(<Future<dynamic>>[
+      Future<void>.delayed(const Duration(milliseconds: 800)),
+      AuthService.to.restoreSession(),
+    ]);
 
     if (AuthService.to.isLoggedIn.value) {
       AppNavigator.replaceAllNamed<dynamic>(AppRoutes.dashboard);
