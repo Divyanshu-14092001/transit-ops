@@ -192,7 +192,8 @@ export class TripsRepository {
             vehicleId: trip.vehicleId,
             statusFrom: "ON_TRIP",
             statusTo: "AVAILABLE",
-            reason: newStatus === "COMPLETED" ? "Trip Completed" : "Trip Cancelled",
+            reason:
+              newStatus === "COMPLETED" ? "Trip Completed" : "Trip Cancelled",
             updatedById: userId,
           },
         });
