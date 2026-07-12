@@ -17,7 +17,10 @@ export class AuthService {
       throw new Error(`Your account status is ${user.status.toLowerCase()}`);
     }
 
-    const isPasswordValid = await bcrypt.compare(input.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      input.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new Error("Invalid email or password");
     }
@@ -36,7 +39,8 @@ export class AuthService {
     await this.authRepository.updateLastLogin(user.id);
 
     // Generate JWT access token
-    const secret = process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
+    const secret =
+      process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
     const accessToken = jwt.sign(
       {
         id: user.id,
@@ -44,7 +48,7 @@ export class AuthService {
         permissions: permissionList,
       },
       secret,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     const organizationsList = user.userOrganizations.map((uo) => ({
@@ -70,7 +74,8 @@ export class AuthService {
   }
 
   async verifyAccessToken(token: string) {
-    const secret = process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
+    const secret =
+      process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
     const decoded = jwt.verify(token, secret) as {
       id: string;
       email: string;
