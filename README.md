@@ -1,70 +1,120 @@
 # TransitOps - Smart Transport Operations Platform
 
-TransitOps is an enterprise-grade smart transport operations platform designed for the Odoo 2026 Hackathon. It features a modern, clean-architecture monorepo setup targeting robust scalability, data normalization, and strict validation.
+TransitOps is a state-of-the-art, enterprise-grade fleet and transport operations management platform built for the **Odoo 2026 Hackathon**. Featuring a modern monorepo architecture, type-safe API operations, and strict validation, TransitOps empowers fleet managers, safety officers, financial analysts, and drivers to coordinate seamlessly.
 
-## Repository Structure
+---
+
+## 🚀 Live Cloud Deployment
+
+Both the frontend dashboard and backend API services are fully deployed on the cloud via **Railway**:
+
+- **Web Dashboard**: [https://gentle-tenderness-production-5c99.up.railway.app](https://gentle-tenderness-production-5c99.up.railway.app)
+- **REST API Base**: `https://transit-ops-production.up.railway.app`
+
+### 🔑 Demo Credentials
+
+You can test the different role-based permission profiles using the following credentials:
+
+* **Default Password**: `SecurePassword123`
+
+| Role Name | Email Address | Description & Scope |
+| :--- | :--- | :--- |
+| **Fleet Manager** | `manager@transitops.com` | Full management of fleets, vehicles, drivers, trips, and maintenance. |
+| **Driver** | `driver@transitops.com` | Operates trips, logs fuel, and views assigned dispatches. |
+| **Safety Officer** | `safety@transitops.com` | Monitors compliance, driver safety scores, and exportable reports. |
+| **Financial Analyst** | `finance@transitops.com` | Accesses and approves expenses, fuel logs, and financial metrics. |
+
+---
+
+## 🌟 Key Features
+
+### 1. **Fleet & Vehicle Management**
+* Register and modify vehicles with distinct attributes (Registration Numbers, Chassis Numbers, Odometer Readings, and Acquisition Costs).
+* Define vehicle capacities in **Weight (Kg)** or **Volume (Litre)**.
+* Filter vehicles by status (`Available`, `On Trip`, `In Shop`, `Retired`).
+* Auto-validate unique registration numbers globally.
+
+### 2. **Driver Profile & Compliance Management**
+* Log driver profiles with active license tracking, category types (`LMV`, `HMV`, `Transport`), and expiry dates.
+* Automated checks to block drivers with expired licenses or `Suspended` status from being assigned to any dispatches.
+* Track individual safety scores and employee codes.
+
+### 3. **Smart Trip Dispatch (Trip Lifecycle)**
+* Dispatch new trips choosing source/destination locations dynamically.
+* **Auto-Capacity Validation**: Ensures Cargo Weight does not exceed the selected vehicle's maximum load capacity before enabling dispatch.
+* **Automatic Status Side-Effects**:
+  - Dispatching a trip (`DISPATCHED`) sets both the vehicle and driver status to `On Trip`.
+  - Completing a trip (`COMPLETED`) or cancelling it (`CANCELLED`) automatically restores both the vehicle and driver status to `Available`.
+
+### 4. **Maintenance & Workshop Scheduling**
+* Log routine, corrective, preventive, breakdown, and inspection maintenance records.
+* Automatically updates vehicle status to `In Shop` upon maintenance creation, preventing scheduling on new trips.
+* Track service providers, estimated costs, invoice details, and repair notes.
+
+### 5. **Fuel & Financial Logs**
+* Log fuel transactions with price per litre, odometer tracking, and fuel volumes.
+* Capture expenses (tolls, food, maintenance, permits) linked to specific trips, with authorization steps for financial analysts.
+
+---
+
+## 🛠 Tech Stack
+
+### Backend
+* **Runtime & Framework**: Node.js + Express.js + TypeScript
+* **Database**: PostgreSQL (Prisma ORM with fully normalized schemas and migrations)
+* **Validation**: Zod (strict validation on headers, queries, path parameters, and request bodies)
+* **Security**: JWT Authentication, RBAC (Role-Based Access Control) middlewares, Helmet, CORS, and Express Rate Limiter.
+
+### Frontend
+* **Framework**: Flutter Web / Mobile (Dart)
+* **State Management**: GetX (highly reactive binding architecture)
+* **Networking**: Dio (with custom interceptors, automatic authorization headers, and structured error mapping)
+* **Design System**: Vanilla Material 3 styling (with custom premium color palettes, modern fonts via Google Fonts, responsive dashboards, and interactive widgets)
+
+---
+
+## 📂 Project Structure
 
 ```
 TransitOps/
 ├── apps/
-│   ├── frontend/         # Flutter mobile/desktop app (Clean Architecture + GetX + Dio)
-│   └── backend/          # Node.js + Express + TypeScript + Prisma API
+│   ├── frontend/         # Flutter application (GetX + Dio + Material 3)
+│   └── backend/          # Express.js + TypeScript + Prisma ORM + Zod API
 ├── packages/
-│   └── shared/           # Common TypeScript types, validation rules, constants
-├── docs/                 # Architecture, schemas, and API documentation
-└── scripts/              # Setup, utility, and build scripts
+│   └── shared/           # Shared TypeScript types, enums, HTTP status utilities
+├── docs/                 # API references, schema layouts, and guides
+└── scripts/              # Workspace bootstrap and utility scripts
 ```
 
-## Architectural Guidelines
+---
 
-### Backend Rules
-- **Modular Feature Architecture**: Keep each feature completely isolated in `src/features/<feature-name>`.
-- **Layer Separation**: No business logic is permitted in controllers. Ensure strict separation:
-  - **Routes**: HTTP routing and parameter mapping.
-  - **Validators**: Schema validation (using validation libraries) of body, params, query, and headers.
-  - **Controllers**: Handle requests/responses, call services, map errors.
-  - **Services**: All business logic, transaction handling, orchestration.
-  - **Repositories**: Data access logic (Prisma).
-  - **Middlewares**: Auth, RBAC, error boundaries, rate limiting.
+## 💻 Local Setup & Development
 
-### Database Design Rules (PostgreSQL + Prisma)
-- Normalize schemas completely. No JSON blobs for relational data.
-- Ensure referential integrity using Foreign Keys and constraints.
-- Define proper indexes, unique constraints, and composite keys where appropriate.
-- Include audit timestamps (`createdAt`, `updatedAt`) and soft delete mechanisms where relevant.
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/Divyanshu-14092001/transit-ops.git
+   cd transit-ops
+   ```
 
-### Frontend Rules (Flutter + Material 3)
-- **Clean Architecture & MVVM**:
-  - `data/`: Models, data sources, and repositories implementation.
-  - `domain/`: Pure business logic, entity definitions, repository interfaces, and usecases.
-  - `presentation/`: Views, ViewModels/Controllers (using GetX), and private widgets.
-- **Dependency Injection & Routing**: Handled uniformly via GetX bindings and routing.
-- **API Client**: Implemented with `Dio`, centralized request configuration, interceptors, token refresh, and safe error mapping.
-- **Reusable UI**: Do not repeat layout or design elements. Use theme tokens and core widgets.
+2. **Install Workspace Dependencies**:
+   ```bash
+   ./scripts/bootstrap.sh
+   ```
 
-## Development Workflows
+3. **Database Migrations (Backend)**:
+   Ensure you have a local PostgreSQL database configured, configure `.env`, then:
+   ```bash
+   cd apps/backend
+   npx prisma migrate dev
+   npx prisma db seed
+   ```
 
-### Setup & Bootstrap
-To install all dependencies across the monorepo workspaces:
-```bash
-./scripts/bootstrap.sh
-```
-
-### Git Strategy & Branches
-- **main**: Always stable, only receives tested merges via PR.
-- **dev**: Primary active development branch.
-- **Commit Messages**: Follow Conventional Commits format:
-  - `feat: ...` for new features
-  - `fix: ...` for bug fixes
-  - `refactor: ...` for code refactoring
-  - `docs: ...` for documentation updates
-  - `style: ...` for code style updates
-  - `test: ...` for adding/fixing tests
-  - `build: ...` or `chore: ...` for tooling and meta tasks
-
-## AI Guardrails for Developers (and Coding Assistants)
-1. **Never write business logic blindly**: Always sketch the architecture, verify against constraints, and update specifications first.
-2. **Do not duplicate code**: Always verify if a type, constant, or utility should reside in `packages/shared`.
-3. **Follow the directory structure**: Keep modules, components, and services localized and organized by features.
-4. **Never introduce breaking changes** without consulting the Tech Lead.
-5. **No commented-out code or magic numbers**: Write clean, self-documenting code.
+4. **Run Services**:
+   - Run backend dev server:
+     ```bash
+     cd apps/backend && npm run dev
+     ```
+   - Run frontend app:
+     ```bash
+     cd apps/frontend && flutter run -d chrome
+     ```
