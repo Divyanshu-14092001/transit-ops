@@ -96,57 +96,60 @@ class DashboardController extends GetxController {
       'Maintenance order #819 closed for Vehicle #12.',
     ]);
 
-    // Prepopulate vehicles list
-    vehiclesList.assignAll(<VehicleModel>[
-      VehicleModel(
-        name: 'Ashok Leyland Cargo 101',
-        number: 'MH-12-PQ-8901',
-        registrationNumber: 'REG-8901',
-        chasisNumber: 'CHS-091A82',
-        type: VehicleType.Truck,
-        maxLoadCapacity: 12000.0,
-        capacityUnit: CapacityUnit.Kg,
-        odometer: 45230.0,
-        acquisitionCost: 2800000.0,
-        status: VehicleStatus.Available,
-      ),
-      VehicleModel(
-        name: 'Tata Ace Gold',
-        number: 'DL-01-AB-1234',
-        registrationNumber: 'REG-1234',
-        chasisNumber: 'CHS-129B78',
-        type: VehicleType.MiniTruck,
-        maxLoadCapacity: 1500.0,
-        capacityUnit: CapacityUnit.Kg,
-        odometer: 12800.0,
-        acquisitionCost: 650000.0,
-        status: VehicleStatus.OnTrip,
-      ),
-      VehicleModel(
-        name: 'Mahindra Supro',
-        number: 'KA-03-XY-5678',
-        registrationNumber: 'REG-5678',
-        chasisNumber: 'CHS-812C43',
-        type: VehicleType.Van,
-        maxLoadCapacity: 800.0,
-        capacityUnit: CapacityUnit.Kg,
-        odometer: 34100.0,
-        acquisitionCost: 750000.0,
-        status: VehicleStatus.InShop,
-      ),
-      VehicleModel(
-        name: 'Maruti Suzuki Eeco Cargo',
-        number: 'TS-09-RT-4321',
-        registrationNumber: 'REG-4321',
-        chasisNumber: 'CHS-431D91',
-        type: VehicleType.MiniVan,
-        maxLoadCapacity: 600.0,
-        capacityUnit: CapacityUnit.Kg,
-        odometer: 62400.0,
-        acquisitionCost: 520000.0,
-        status: VehicleStatus.Retired,
-      ),
-    ]);
+    // Fetch vehicles from backend, or fall back to mock profiles
+    await fetchVehicles();
+    if (vehiclesList.isEmpty) {
+      vehiclesList.assignAll(<VehicleModel>[
+        VehicleModel(
+          name: 'Ashok Leyland Cargo 101',
+          number: 'MH-12-PQ-8901',
+          registrationNumber: 'REG-8901',
+          chasisNumber: 'CHS-091A82',
+          type: VehicleType.TRUCK,
+          maxLoadCapacity: 12000.0,
+          capacityUnit: CapacityUnit.KILOGRAM,
+          odometer: 45230.0,
+          acquisitionCost: 2800000.0,
+          status: VehicleStatus.AVAILABLE,
+        ),
+        VehicleModel(
+          name: 'Tata Ace Gold',
+          number: 'DL-01-AB-1234',
+          registrationNumber: 'REG-1234',
+          chasisNumber: 'CHS-129B78',
+          type: VehicleType.MINI_TRUCK,
+          maxLoadCapacity: 1500.0,
+          capacityUnit: CapacityUnit.KILOGRAM,
+          odometer: 12800.0,
+          acquisitionCost: 650000.0,
+          status: VehicleStatus.ON_TRIP,
+        ),
+        VehicleModel(
+          name: 'Mahindra Supro',
+          number: 'KA-03-XY-5678',
+          registrationNumber: 'REG-5678',
+          chasisNumber: 'CHS-812C43',
+          type: VehicleType.VAN,
+          maxLoadCapacity: 800.0,
+          capacityUnit: CapacityUnit.KILOGRAM,
+          odometer: 34100.0,
+          acquisitionCost: 750000.0,
+          status: VehicleStatus.IN_SHOP,
+        ),
+        VehicleModel(
+          name: 'Maruti Suzuki Eeco Cargo',
+          number: 'TS-09-RT-4321',
+          registrationNumber: 'REG-4321',
+          chasisNumber: 'CHS-431D91',
+          type: VehicleType.VAN,
+          maxLoadCapacity: 600.0,
+          capacityUnit: CapacityUnit.KILOGRAM,
+          odometer: 62400.0,
+          acquisitionCost: 520000.0,
+          status: VehicleStatus.RETIRED,
+        ),
+      ]);
+    }
 
     // Fetch drivers from backend, or fall back to mock profiles
     await fetchDrivers();
@@ -226,12 +229,12 @@ class DashboardController extends GetxController {
             number: 'MH-12-PQ-8901',
             registrationNumber: 'REG-8901',
             chasisNumber: 'CHS-091A82',
-            type: VehicleType.Truck,
+            type: VehicleType.TRUCK,
             maxLoadCapacity: 12000.0,
-            capacityUnit: CapacityUnit.Kg,
+            capacityUnit: CapacityUnit.KILOGRAM,
             odometer: 45230.0,
             acquisitionCost: 2800000.0,
-            status: VehicleStatus.Available,
+            status: VehicleStatus.AVAILABLE,
           );
 
     tripsList.assignAll(<TripModel>[
@@ -243,10 +246,10 @@ class DashboardController extends GetxController {
         driver: driversList.isNotEmpty ? driversList[0] : fallbackDriver,
         cargoWeight: 8500.0,
         plannedDistance: 150.0,
-        initialStatus: TripStatus.Dispatched,
+        initialStatus: TripStatus.ASSIGNED,
         historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(hours: 2)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(hours: 2)), changedBy: 'Fleet Manager'),
         ],
       ),
       TripModel(
@@ -257,11 +260,11 @@ class DashboardController extends GetxController {
         driver: driversList.length > 1 ? driversList[1] : fallbackDriver,
         cargoWeight: 1200.0,
         plannedDistance: 45.0,
-        initialStatus: TripStatus.Completed,
+        initialStatus: TripStatus.COMPLETED,
         historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 4)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.Completed, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 4)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.COMPLETED, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)), changedBy: 'Fleet Manager'),
         ],
       ),
       TripModel(
@@ -272,11 +275,11 @@ class DashboardController extends GetxController {
         driver: driversList.length > 2 ? driversList[2] : fallbackDriver,
         cargoWeight: 400.0,
         plannedDistance: 25.0,
-        initialStatus: TripStatus.Cancelled,
+        initialStatus: TripStatus.CANCELLED,
         historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(hours: 6)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(hours: 5)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.Cancelled, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(hours: 6)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(hours: 5)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.CANCELLED, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
         ],
       ),
     ]);
@@ -284,13 +287,73 @@ class DashboardController extends GetxController {
     isLoading.value = false;
   }
 
-  bool addVehicle(VehicleModel vehicle) {
-    if (vehiclesList.any((VehicleModel v) =>
-        v.registrationNumber.trim().toLowerCase() == vehicle.registrationNumber.trim().toLowerCase())) {
-      return false;
+  Future<void> fetchVehicles() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/vehicles',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          List<dynamic> items = <dynamic>[];
+          if (data is List) {
+            items = data;
+          } else if (data is Map && data['items'] != null) {
+            items = data['items'] as List<dynamic>;
+          }
+          if (items.isNotEmpty) {
+            final List<VehicleModel> loadedVehicles = items
+                .map((dynamic item) => VehicleModel.fromJson(item as Map<String, dynamic>))
+                .toList();
+            vehiclesList.assignAll(loadedVehicles);
+          }
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
     }
-    vehiclesList.add(vehicle);
-    return true;
+  }
+
+  Future<VehicleModel?> checkVehicleRegistration(String registrationNumber) async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/vehicles',
+        queryParameters: <String, String>{'registrationNumber': registrationNumber.trim()},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          if (data is Map<String, dynamic>) {
+            return VehicleModel.fromJson(data);
+          } else if (data is List && data.isNotEmpty) {
+            return VehicleModel.fromJson(data.first as Map<String, dynamic>);
+          }
+        }
+      }
+    } catch (e) {
+      // Return null on failure
+    }
+    return null;
+  }
+
+  Future<bool> addVehicle(VehicleModel vehicle) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/vehicles',
+        data: vehicle.toJson(),
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await fetchVehicles();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   Future<bool> addDriver(DriverModel driver) async {
@@ -391,9 +454,9 @@ class DashboardController extends GetxController {
 }
 
 // Vehicle Enums and Models
-enum VehicleType { Van, MiniTruck, Truck, MiniVan }
-enum CapacityUnit { Kg, Litres }
-enum VehicleStatus { Available, OnTrip, InShop, Retired }
+enum VehicleType { VAN, TRUCK, MINI_TRUCK, TANKER, OTHER }
+enum CapacityUnit { PERSON, KILOGRAM, TONNE, LITRE, CUBIC_METRE }
+enum VehicleStatus { AVAILABLE, ON_TRIP, IN_SHOP, RETIRED }
 
 class VehicleModel {
   final String name;
@@ -419,6 +482,47 @@ class VehicleModel {
     required this.acquisitionCost,
     required this.status,
   });
+
+  factory VehicleModel.fromJson(Map<String, dynamic> json) {
+    return VehicleModel(
+      name: json['vehicleNumber'] as String? ?? '',
+      number: json['vehicleNumber'] as String? ?? '',
+      registrationNumber: json['registrationNumber'] as String? ?? '',
+      chasisNumber: json['chassisNumber'] as String? ?? '',
+      type: VehicleType.values.firstWhere(
+        (e) => e.name == json['vehicleType'],
+        orElse: () => VehicleType.TRUCK,
+      ),
+      maxLoadCapacity: double.tryParse(json['maximumCapacity']?.toString() ?? '') ?? 0.0,
+      capacityUnit: CapacityUnit.values.firstWhere(
+        (e) => e.name == json['capacityUnit'],
+        orElse: () => CapacityUnit.KILOGRAM,
+      ),
+      odometer: double.tryParse(json['odometerReading']?.toString() ?? '') ?? 0.0,
+      acquisitionCost: double.tryParse(json['acquisitionCost']?.toString() ?? '') ?? 0.0,
+      status: VehicleStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => VehicleStatus.AVAILABLE,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'vehicleNumber': number,
+      'registrationNumber': registrationNumber,
+      'chassisNumber': chasisNumber,
+      'vehicleType': type.name,
+      'acquisitionCost': acquisitionCost,
+      'acquisitionDate': DateTime.now().toIso8601String().substring(0, 10),
+      'manufacturingYear': DateTime.now().year,
+      'capacityType': 'WEIGHT',
+      'maximumCapacity': maxLoadCapacity,
+      'capacityUnit': capacityUnit.name,
+      'odometerReading': odometer,
+      'status': status.name,
+    };
+  }
 }
 
 // Driver Enums and Models
@@ -489,7 +593,7 @@ class DriverModel {
 }
 
 // Trip Enums and Models
-enum TripStatus { Draft, Dispatched, Completed, Cancelled }
+enum TripStatus { DRAFT, PLANNED, ASSIGNED, READY, IN_PROGRESS, COMPLETED, CANCELLED, DELAYED, FAILED }
 
 class TripStatusHistory {
   final TripStatus status;
