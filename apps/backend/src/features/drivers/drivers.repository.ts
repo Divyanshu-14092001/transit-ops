@@ -120,7 +120,10 @@ export class DriversRepository {
     };
   }
 
-  async createOrUpdateDriver(input: CreateDriverInput, targetOrganizationId: string) {
+  async createOrUpdateDriver(
+    input: CreateDriverInput,
+    targetOrganizationId: string,
+  ) {
     return prisma.$transaction(async (tx) => {
       // Find DRIVER role
       const driverRole = await tx.role.findUnique({
@@ -236,7 +239,10 @@ export class DriversRepository {
         });
 
         if (!user) {
-          const defaultPasswordHash = await bcrypt.hash("SecurePassword123", 10);
+          const defaultPasswordHash = await bcrypt.hash(
+            "SecurePassword123",
+            10,
+          );
           user = await tx.user.create({
             data: {
               email: input.email,

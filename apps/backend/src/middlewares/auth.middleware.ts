@@ -13,7 +13,7 @@ export interface AuthenticatedRequest extends Request {
 export const authenticateToken = (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const authHeader = req.headers["authorization"];
   let token = "";
@@ -39,13 +39,14 @@ export const authenticateToken = (
   }
 
   try {
-    const secret = process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
+    const secret =
+      process.env.JWT_SECRET || "change-this-to-a-secure-random-key";
     const decoded = jwt.verify(token, secret) as {
       id: string;
       email: string;
       permissions: string[];
     };
-    
+
     req.user = decoded;
     next();
   } catch (error) {

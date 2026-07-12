@@ -61,8 +61,10 @@ export class VehiclesRepository {
   }
 
   async createVehicle(
-    data: Omit<Prisma.VehicleUncheckedCreateInput, "fleetId"> & { fleetId: string },
-    userId: string
+    data: Omit<Prisma.VehicleUncheckedCreateInput, "fleetId"> & {
+      fleetId: string;
+    },
+    userId: string,
   ) {
     return prisma.$transaction(async (tx) => {
       // 1. Create vehicle record

@@ -6,6 +6,7 @@ import { HTTP_STATUS } from "@transitops/shared";
 import { authRouter } from "./features/auth/auth.routes";
 import { driversRouter } from "./features/drivers/drivers.routes";
 import { vehiclesRouter } from "./features/vehicles/vehicles.routes";
+import { tripsRouter } from "./features/trips/trips.routes";
 
 const app = express();
 
@@ -23,7 +24,9 @@ const allowedOrigins = [
   "http://127.0.0.1:8080",
 ].filter(Boolean) as string[];
 
-const cleanAllowedOrigins = allowedOrigins.map((origin) => origin.replace(/\/$/, ""));
+const cleanAllowedOrigins = allowedOrigins.map((origin) =>
+  origin.replace(/\/$/, ""),
+);
 
 app.use(
   cors({
@@ -32,7 +35,10 @@ app.use(
         return callback(null, true);
       }
       const cleanOrigin = origin.replace(/\/$/, "");
-      if (cleanAllowedOrigins.includes(cleanOrigin) || cleanAllowedOrigins.includes("*")) {
+      if (
+        cleanAllowedOrigins.includes(cleanOrigin) ||
+        cleanAllowedOrigins.includes("*")
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -64,6 +70,7 @@ app.use("/api/", limiter);
 app.use("/api/auth", authRouter);
 app.use("/api/drivers", driversRouter);
 app.use("/api/vehicles", vehiclesRouter);
+app.use("/api/trips", tripsRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {

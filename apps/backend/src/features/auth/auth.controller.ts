@@ -35,7 +35,11 @@ export class AuthController {
     }
   };
 
-  verifyAccessToken = async (req: Request, res: Response, next: NextFunction) => {
+  verifyAccessToken = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const authHeader = req.headers["authorization"];
       let token = "";

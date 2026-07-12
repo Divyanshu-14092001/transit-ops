@@ -103,14 +103,9 @@ enum DistanceUnit {
 
 enum TripStatus {
   DRAFT
-  PLANNED
-  ASSIGNED
-  READY
-  IN_PROGRESS
+  DISPATCHED
   COMPLETED
   CANCELLED
-  DELAYED
-  FAILED
 }
 
 enum MaintenanceType {
@@ -511,6 +506,7 @@ model Trip {
   actualEndAt           DateTime?    @map("actual_end_at")
   distance              Decimal      @db.Decimal(10, 2)
   distanceUnit          DistanceUnit @map("distance_unit")
+  cargoWeight           Decimal?     @map("cargo_weight") @db.Decimal(10, 2)
   status                TripStatus   @default(DRAFT)
   notes                 String?      @db.Text
   createdById           String       @map("created_by_id") @db.Uuid

@@ -19,8 +19,14 @@ export const createDriverSchema = z.object({
   employeeCode: z.string().min(1, "Employee code is required"),
   licenseNumber: z.string().min(1, "License number is required"),
   licenseCategory: z.nativeEnum(LicenseCategory),
-  licenseIssuedAt: z.preprocess((val) => (typeof val === "string" ? new Date(val) : val), z.date()),
-  licenseExpiryDate: z.preprocess((val) => (typeof val === "string" ? new Date(val) : val), z.date()),
+  licenseIssuedAt: z.preprocess(
+    (val) => (typeof val === "string" ? new Date(val) : val),
+    z.date(),
+  ),
+  licenseExpiryDate: z.preprocess(
+    (val) => (typeof val === "string" ? new Date(val) : val),
+    z.date(),
+  ),
   safetyScore: z.coerce.number().min(0).max(100).default(100),
   status: z.nativeEnum(DriverStatus).default(DriverStatus.AVAILABLE),
 });

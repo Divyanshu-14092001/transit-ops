@@ -2,12 +2,19 @@ import { Response, NextFunction } from "express";
 import { HTTP_STATUS } from "@transitops/shared";
 import { AuthenticatedRequest } from "../../middlewares/auth.middleware";
 import { VehiclesService } from "./vehicles.service";
-import { getVehiclesQuerySchema, createVehicleSchema } from "./vehicles.validator";
+import {
+  getVehiclesQuerySchema,
+  createVehicleSchema,
+} from "./vehicles.validator";
 
 export class VehiclesController {
   private vehiclesService = new VehiclesService();
 
-  getVehicles = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  getVehicles = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const query = getVehiclesQuerySchema.parse(req.query);
       const userId = req.user?.id;
@@ -32,7 +39,11 @@ export class VehiclesController {
     }
   };
 
-  createVehicle = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  createVehicle = async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const input = createVehicleSchema.parse(req.body);
       const userId = req.user?.id;

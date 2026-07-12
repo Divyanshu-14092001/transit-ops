@@ -37,18 +37,24 @@ class TripsView extends GetView<DashboardController> {
                         final ThemeData theme = Theme.of(context);
                         Color statusColor;
                         switch (item.status.value) {
-                          case TripStatus.Draft:
+                          case TripStatus.DRAFT:
                             statusColor = Colors.grey;
                             break;
-                          case TripStatus.Dispatched:
+                          case TripStatus.ASSIGNED:
+                          case TripStatus.PLANNED:
+                          case TripStatus.READY:
+                          case TripStatus.IN_PROGRESS:
                             statusColor = Colors.blue;
                             break;
-                          case TripStatus.Completed:
+                          case TripStatus.COMPLETED:
                             statusColor = Colors.green;
                             break;
-                          case TripStatus.Cancelled:
+                          case TripStatus.CANCELLED:
+                          case TripStatus.FAILED:
                             statusColor = Colors.red;
                             break;
+                          default:
+                            statusColor = Colors.grey;
                         }
 
                         return Card(
@@ -72,7 +78,7 @@ class TripsView extends GetView<DashboardController> {
                                   Text(item.id, style: const TextStyle(fontWeight: FontWeight.bold)),
                                   const SizedBox(width: 12),
                                   StatusBadge(
-                                    status: item.status.value == TripStatus.Dispatched ? 'Dispatched' : (item.status.value == TripStatus.Completed ? 'Completed' : (item.status.value == TripStatus.Cancelled ? 'Cancelled' : 'Draft')),
+                                    status: item.status.value == TripStatus.ASSIGNED || item.status.value == TripStatus.IN_PROGRESS ? 'Dispatched' : (item.status.value == TripStatus.COMPLETED ? 'Completed' : (item.status.value == TripStatus.CANCELLED || item.status.value == TripStatus.FAILED ? 'Cancelled' : 'Draft')),
                                     color: statusColor,
                                   ),
                                 ]),
@@ -105,13 +111,13 @@ class TripsView extends GetView<DashboardController> {
   Widget _buildTripLifecycleTimeline(TripModel trip, BuildContext context) {
     final ThemeData theme = Theme.of(context);
 
-    final TripStatusHistory? draftHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Draft);
-    final TripStatusHistory? dispHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Dispatched);
-    final TripStatusHistory? compHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Completed);
-    final TripStatusHistory? cancHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Cancelled);
+    final TripStatusHistory? draftHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.DRAFT);
+    final TripStatusHistory? dispHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.ASSIGNED);
+    final TripStatusHistory? compHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.COMPLETED);
+    final TripStatusHistory? cancHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.CANCELLED);
 
-    final bool isCompleted = trip.status.value == TripStatus.Completed;
-    final bool isCancelled = trip.status.value == TripStatus.Cancelled;
+    final bool isCompleted = trip.status.value == TripStatus.COMPLETED;
+    final bool isCancelled = trip.status.value == TripStatus.CANCELLED;
 
     final List<TimelineNode> nodes = <TimelineNode>[
       TimelineNode(title: isCancelled ? 'Cancelled' : 'Completed', isActive: isCompleted || isCancelled, history: isCancelled ? cancHist : compHist, color: isCancelled ? Colors.red : Colors.green),
@@ -138,27 +144,27 @@ class TripsView extends GetView<DashboardController> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
-                  if (trip.status.value == TripStatus.Draft)
+                  if (trip.status.value == TripStatus.DRAFT)
                     AppButton(
                       label: 'Dispatch Trip',
                       icon: Icons.local_shipping_outlined,
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.Dispatched);
+                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.ASSIGNED);
                         showActionSnackbar('Trip ${trip.id} dispatched!');
                       },
                     ),
-                  if (trip.status.value == TripStatus.Dispatched) ...<Widget>[
+                  if (trip.status.value == TripStatus.ASSIGNED) ...<Widget>[
                     AppButton(
                       label: 'Complete Trip',
                       icon: Icons.check,
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.Completed);
+                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.COMPLETED);
                         showActionSnackbar('Trip ${trip.id} marked as completed!');
                       },
                     ),
                     TextButton.icon(
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.Cancelled);
+                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.CANCELLED);
                         showActionSnackbar('Trip ${trip.id} cancelled.');
                       },
                       icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
@@ -210,7 +216,7 @@ class TripsView extends GetView<DashboardController> {
     String selectedSource = cities[0];
     String selectedDestination = cities[1];
 
-    final List<VehicleModel> availableVehicles = controller.vehiclesList.where((VehicleModel v) => v.status == VehicleStatus.Available).toList();
+    final List<VehicleModel> availableVehicles = controller.vehiclesList.where((VehicleModel v) => v.status == VehicleStatus.AVAILABLE).toList();
     final List<DriverModel> availableDrivers = controller.driversList.where((DriverModel d) => d.status == DriverStatus.AVAILABLE).toList();
 
     VehicleModel? selectedVehicle = availableVehicles.isNotEmpty ? availableVehicles[0] : null;
@@ -271,8 +277,8 @@ class TripsView extends GetView<DashboardController> {
                   driver: selectedDriver!,
                   cargoWeight: double.parse(weightCtrl.text.trim()),
                   plannedDistance: double.parse(distanceCtrl.text.trim()),
-                  initialStatus: TripStatus.Draft,
-                  historyList: <TripStatusHistory>[TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now(), changedBy: 'Fleet Manager')],
+                  initialStatus: TripStatus.DRAFT,
+                  historyList: <TripStatusHistory>[TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now(), changedBy: 'Fleet Manager')],
                 ));
                 Get.back<dynamic>();
                 showActionSnackbar('Trip $newId created in Draft state!');
