@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../../middlewares/auth.middleware";
 import { DriversService } from "./drivers.service";
 import { getDriversQuerySchema, createDriverSchema } from "./drivers.validator";
 import { prisma } from "../../config/prisma";
+import { CustomError } from "../../utils/custom-error";
 
 export class DriversController {
   private driversService = new DriversService();
@@ -17,9 +18,7 @@ export class DriversController {
     });
 
     if (!userOrg) {
-      throw new Error(
-        "Unauthorized: User does not belong to any active organization",
-      );
+      throw new CustomError("No active organization found for this user.", HTTP_STATUS.BAD_REQUEST);
     }
 
     return userOrg.organizationId;
@@ -39,10 +38,19 @@ export class DriversController {
         organizationId = await this.getActiveOrganization(req.user.id);
       }
 
-      const result = await this.driversService.getDrivers(
-        query,
-        organizationId,
-      );
+      const result = await this.driversService.getDrivers(query, organizationId);
+
+      if (query.licenseNumber && req.user && result.items.length > 0) {
+        const userOrgId = await this.getActiveOrganization(req.user.id);
+        const driver = result.items[0];
+        if (driver && driver.organizationId === userOrgId) {
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
+            status: "error",
+            statusCode: HTTP_STATUS.BAD_REQUEST,
+            message: `Driver already exists in ${driver.organization?.name || "your organization"}.`,
+          });
+        }
+      }
 
       return res.status(HTTP_STATUS.OK).json({
         status: "success",

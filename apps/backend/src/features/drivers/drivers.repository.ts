@@ -104,6 +104,13 @@ export class DriversRepository {
               createdAt: true,
             },
           },
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -214,7 +221,7 @@ export class DriversRepository {
             licenseExpiryDate: input.licenseExpiryDate,
             safetyScore: input.safetyScore,
             status: input.status,
-            retiredAt: input.status === "RETIRED" ? new Date() : null,
+            retiredAt: (input.status as string) === "RETIRED" ? new Date() : null,
           },
           include: {
             user: {
@@ -263,30 +270,17 @@ export class DriversRepository {
           },
         });
 
-        if (!existingMembership) {
-          // Retire any other active organizations first
-          await tx.userOrganization.updateMany({
-            where: {
-              userId: user.id,
-              status: "ACTIVE",
-            },
-            data: {
-              status: "INACTIVE",
-              leftAt: new Date(),
-            },
-          });
+        // Link user to organization
+        await tx.userOrganization.create({
+          data: {
+            userId: user.id,
+            organizationId: targetOrganizationId,
+            status: "ACTIVE",
+            joinedAt: new Date(),
+          },
+        });
 
-          await tx.userOrganization.create({
-            data: {
-              userId: user.id,
-              organizationId: targetOrganizationId,
-              status: "ACTIVE",
-              joinedAt: new Date(),
-            },
-          });
-        }
-
-        // Ensure user role exists
+        // Assign DRIVER role to user in organization
         const existingRole = await tx.userRole.findFirst({
           where: {
             userId: user.id,
@@ -318,7 +312,7 @@ export class DriversRepository {
             licenseExpiryDate: input.licenseExpiryDate,
             safetyScore: input.safetyScore,
             status: input.status,
-            retiredAt: input.status === "RETIRED" ? new Date() : null,
+            retiredAt: (input.status as string) === "RETIRED" ? new Date() : null,
           },
           include: {
             user: {

@@ -16,17 +16,60 @@ class VehiclesView extends GetView<DashboardController> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Obx(() => DashboardCard(
-            title: 'Registered Vehicle Inventory',
-            trailing: AccessControl(
-              permission: BackendPermissions.fleetCreate,
-              child: AppButton(
-                label: 'Register Vehicle',
-                icon: Icons.add,
-                onPressed: () => _showRegisterVehicleDialog(context),
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // Filters & Search Card
+          DashboardCard(
+            title: 'Filters & Search',
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 250,
+                  child: Obx(() => DropdownButtonFormField<VehicleStatus?>(
+                        value: controller.selectedVehicleStatusFilter.value,
+                        decoration: const InputDecoration(
+                          labelText: 'Filter by Status',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: <DropdownMenuItem<VehicleStatus?>>[
+                          const DropdownMenuItem<VehicleStatus?>(
+                            value: null,
+                            child: Text('All Statuses'),
+                          ),
+                          ...VehicleStatus.values.map(
+                            (VehicleStatus status) => DropdownMenuItem<VehicleStatus?>(
+                              value: status,
+                              child: Text(status == VehicleStatus.AVAILABLE
+                                  ? 'Available'
+                                  : (status == VehicleStatus.ON_TRIP
+                                      ? 'On Trip'
+                                      : (status == VehicleStatus.IN_SHOP
+                                          ? 'In Shop'
+                                          : 'Retired'))),
+                            ),
+                          ),
+                        ],
+                        onChanged: (VehicleStatus? val) {
+                          controller.selectedVehicleStatusFilter.value = val;
+                        },
+                      )),
+                ),
+              ],
             ),
-            child: controller.vehiclesList.isEmpty
+          ),
+          const SizedBox(height: 24),
+          Obx(() => DashboardCard(
+                title: 'Registered Vehicle Inventory',
+                trailing: AccessControl(
+                  permission: BackendPermissions.fleetCreate,
+                  child: AppButton(
+                    label: 'Register Vehicle',
+                    icon: Icons.add,
+                    onPressed: () => _showRegisterVehicleDialog(context),
+                  ),
+                ),
+                child: controller.vehiclesList.isEmpty
                 ? const Center(
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
@@ -139,6 +182,8 @@ class VehiclesView extends GetView<DashboardController> {
                     ),
                   ),
           )),
+        ],
+      ),
     );
   }
 

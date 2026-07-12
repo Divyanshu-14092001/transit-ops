@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { AuthRepository } from "./auth.repository";
 import { LoginInput } from "./auth.validator";
+import { CustomError } from "../../utils/custom-error";
+import { HTTP_STATUS } from "@transitops/shared";
 
 export class AuthService {
   private authRepository = new AuthRepository();
@@ -10,11 +12,11 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(input.email);
 
     if (!user || user.deletedAt) {
-      throw new Error("Invalid email or password");
+      throw new CustomError("Invalid email or password", HTTP_STATUS.UNAUTHORIZED);
     }
 
     if (user.status !== "ACTIVE") {
-      throw new Error(`Your account status is ${user.status.toLowerCase()}`);
+      throw new CustomError(`Your account status is ${user.status.toLowerCase()}`, HTTP_STATUS.FORBIDDEN);
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -22,7 +24,7 @@ export class AuthService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new Error("Invalid email or password");
+      throw new CustomError("Invalid email or password", HTTP_STATUS.UNAUTHORIZED);
     }
 
     // Extract all unique permission codes across all active roles of the user
@@ -84,7 +86,7 @@ export class AuthService {
 
     const user = await this.authRepository.findUserById(decoded.id);
     if (!user || user.deletedAt || user.status !== "ACTIVE") {
-      throw new Error("User account is inactive or deleted");
+      throw new CustomError("User account is inactive or deleted", HTTP_STATUS.UNAUTHORIZED);
     }
 
     // Re-extract permissions

@@ -148,7 +148,7 @@ class AuthService extends GetxService {
 
   String _errorMessage(DioException error) {
     final dynamic responseData = error.response?.data;
-    if (responseData is Map<dynamic, dynamic>) {
+    if (responseData is Map) {
       final dynamic message = responseData['message'];
       if (message is String && message.isNotEmpty) {
         return message;

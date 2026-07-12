@@ -54,11 +54,8 @@ enum VehicleCapacityType {
 }
 
 enum CapacityUnit {
-  PERSON
   KILOGRAM
-  TONNE
   LITRE
-  CUBIC_METRE
 }
 
 enum VehicleStatus {
@@ -70,12 +67,9 @@ enum VehicleStatus {
 
 enum DriverStatus {
   AVAILABLE
-  ASSIGNED
   ON_TRIP
-  ON_LEAVE
+  OFF_DUTY
   SUSPENDED
-  INACTIVE
-  RETIRED
 }
 
 enum LicenseCategory {
