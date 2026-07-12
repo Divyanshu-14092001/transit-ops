@@ -30,7 +30,7 @@ class AuthController extends GetxController {
     isLoading.value = false;
 
     if (success) {
-      Get.offAllNamed<dynamic>(AppRoutes.dashboard);
+      AppNavigator.replaceAllNamed<dynamic>(AppRoutes.dashboard);
     } else {
       Get.snackbar(
         'Authentication Failed',
