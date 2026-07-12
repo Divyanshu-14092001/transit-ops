@@ -1,5 +1,5 @@
 // Prisma schema for TransitOps
-// Database design will target PostgreSQL
+// Database design targets PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
@@ -10,20 +10,681 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Below is a reference template model showcasing standard engineering standards:
-// - Primary key (UUID preferred)
-// - Unique constraints where needed
-// - Indexes for optimized querying
-// - Soft-delete flags
-// - Audit timestamps (createdAt, updatedAt)
+// ----------------------------------------------------
+// Enums
+// ----------------------------------------------------
 
-model ReferenceTemplate {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BLOCKED
+}
 
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  LEFT
+  SUSPENDED
+}
+
+enum FleetStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum VehicleType {
+  BUS
+  VAN
+  TRUCK
+  CAR
+  MINI_TRUCK
+  TANKER
+  OTHER
+}
+
+enum VehicleCapacityType {
+  PASSENGER
+  WEIGHT
+  VOLUME
+}
+
+enum CapacityUnit {
+  PERSON
+  KILOGRAM
+  TONNE
+  LITRE
+  CUBIC_METRE
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  ON_TRIP
+  IN_SHOP
+  UNDER_MAINTENANCE
+  OUT_OF_SERVICE
+  RETIRED
+}
+
+enum DriverStatus {
+  AVAILABLE
+  ASSIGNED
+  ON_TRIP
+  ON_LEAVE
+  SUSPENDED
+  INACTIVE
+  RETIRED
+}
+
+enum LicenseCategory {
+  LMV
+  HMV
+  TRANSPORT
+  COMMERCIAL
+  OTHER
+}
+
+enum LocationType {
+  COUNTRY
+  STATE
+  DISTRICT
+  CITY
+  DEPOT
+  WAREHOUSE
+  CUSTOM
+}
+
+enum DistanceUnit {
+  KILOMETRE
+  MILE
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNED
+  ASSIGNED
+  READY
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DELAYED
+  FAILED
+}
+
+enum MaintenanceType {
+  ROUTINE_SERVICE
+  PREVENTIVE
+  CORRECTIVE
+  BREAKDOWN
+  INSPECTION
+  TYRE_REPLACEMENT
+  ENGINE_REPAIR
+  BODY_REPAIR
+  OTHER
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum ExpenseType {
+  FUEL
+  TOLL
+  INSURANCE
+  PARKING
+  MAINTENANCE
+  FINE
+  PERMIT
+  DRIVER_ALLOWANCE
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  LNG
+  ELECTRIC
+  HYBRID
+  OTHER
+}
+
+enum FuelQuantityUnit {
+  LITRE
+  KILOGRAM
+  KILOWATT_HOUR
+}
+
+// ----------------------------------------------------
+// Models
+// ----------------------------------------------------
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  fullName      String     @map("full_name") @db.VarChar(255)
+  email         String     @unique @db.VarChar(255)
+  passwordHash  String     @map("password_hash") @db.VarChar(255)
+  contactNumber String?    @unique @map("contact_number") @db.VarChar(50)
+  status        UserStatus @default(ACTIVE)
+  lastLoginAt   DateTime?  @map("last_login_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  // Relations
+  userRoles          UserRole[]               @relation("UserRoles")
+  assignedUserRoles  UserRole[]               @relation("UserRoleAssignedBy")
+  userOrganizations  UserOrganization[]
+  driverProfile      Driver?
+  vehicleStatusLogs  VehicleStatusLog[]
+  fleetAssignments   VehicleFleetAssignment[] @relation("FleetAssignmentAssignedBy")
+  tripsCreated       Trip[]                   @relation("TripCreatedBy")
+  tripsUpdated       Trip[]                   @relation("TripUpdatedBy")
+  tripStatusLogs     TripStatusLog[]
+  maintenanceCreated MaintenanceRecord[]      @relation("MaintenanceCreatedBy")
+  maintenanceUpdated MaintenanceRecord[]      @relation("MaintenanceUpdatedBy")
+  expensesCreated    Expense[]                @relation("ExpenseCreatedBy")
+  expensesApproved   Expense[]                @relation("ExpenseApprovedBy")
+  fuelLogsCreated    FuelLog[]                @relation("FuelLogCreatedBy")
+  fuelLogsUpdated    FuelLog[]                @relation("FuelLogUpdatedBy")
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Role {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @unique @db.VarChar(100)
+  code         String   @unique @db.VarChar(100)
+  description  String?  @db.VarChar(255)
+  isSystemRole Boolean  @default(false) @map("is_system_role")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  resource    String   @db.VarChar(100)
+  action      String   @db.VarChar(100)
+  code        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  roleId         String    @map("role_id") @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  assignedById   String?   @map("assigned_by_id") @db.Uuid
+  assignedAt     DateTime  @default(now()) @map("assigned_at")
+  expiresAt      DateTime? @map("expires_at")
+  isActive       Boolean   @default(true) @map("is_active")
+
+  // Relations
+  user         User         @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedBy   User?        @relation("UserRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId, organizationId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([organizationId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Organization {
+  id            String             @id @default(uuid()) @db.Uuid
+  name          String             @db.VarChar(255)
+  code          String             @unique @db.VarChar(100)
+  email         String?            @db.VarChar(255)
+  contactNumber String?            @map("contact_number") @db.VarChar(50)
+  address       String?            @db.Text
+  city          String?            @db.VarChar(100)
+  state         String?            @db.VarChar(100)
+  country       String?            @db.VarChar(100)
+  postalCode    String?            @map("postal_code") @db.VarChar(20)
+  status        OrganizationStatus @default(ACTIVE)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  deletedAt     DateTime?          @map("deleted_at")
+
+  // Relations
+  userOrganizations  UserOrganization[]
+  userRoles          UserRole[]
+  fleets             Fleet[]
+  vehicles           Vehicle[]
+  drivers            Driver[]
+  trips              Trip[]
+  maintenanceRecords MaintenanceRecord[]
+  expenses           Expense[]
+  fuelLogs           FuelLog[]
+
+  @@index([status])
   @@index([name])
-  @@index([isDeleted])
+  @@map("organizations")
+}
+
+model UserOrganization {
+  id             String           @id @default(uuid()) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  joinedAt       DateTime         @default(now()) @map("joined_at")
+  leftAt         DateTime?        @map("left_at")
+  status         MembershipStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([joinedAt])
+  // Enforced active membership constraint (only one ACTIVE per user-org) via a partial unique index in a custom migration.
+  @@map("user_organizations")
+}
+
+model Fleet {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  name           String      @db.VarChar(255)
+  code           String      @db.VarChar(100)
+  description    String?     @db.Text
+  status         FleetStatus @default(ACTIVE)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+
+  // Relations
+  organization       Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  vehicles           Vehicle[]
+  vehicleAssignments VehicleFleetAssignment[]
+  trips              Trip[]
+  maintenanceRecords MaintenanceRecord[]
+  expenses           Expense[]
+  fuelLogs           FuelLog[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([status])
+  @@map("fleets")
+}
+
+model Vehicle {
+  id                 String              @id @default(uuid()) @db.Uuid
+  organizationId     String              @map("organization_id") @db.Uuid
+  fleetId            String?             @map("fleet_id") @db.Uuid
+  vehicleNumber      String              @map("vehicle_number") @db.VarChar(50)
+  registrationNumber String              @unique @map("registration_number") @db.VarChar(50)
+  chassisNumber      String              @unique @map("chassis_number") @db.VarChar(100)
+  vehicleType        VehicleType         @map("vehicle_type")
+  acquisitionCost    Decimal             @map("acquisition_cost") @db.Decimal(12, 2)
+  acquisitionDate    DateTime            @map("acquisition_date") @db.Date
+  manufacturingYear  Int                 @map("manufacturing_year")
+  capacityType       VehicleCapacityType @map("capacity_type")
+  maximumCapacity    Decimal             @map("maximum_capacity") @db.Decimal(10, 2)
+  capacityUnit       CapacityUnit        @map("capacity_unit")
+  status             VehicleStatus       @default(AVAILABLE)
+  odometerReading    Decimal             @map("odometer_reading") @db.Decimal(10, 2)
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  deletedAt          DateTime?           @map("deleted_at")
+
+  // Relations
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fleet        Fleet?                   @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  statusLogs   VehicleStatusLog[]
+  assignments  VehicleFleetAssignment[]
+  trips        Trip[]
+  maintenance  MaintenanceRecord[]
+  expenses     Expense[]
+  fuelLogs     FuelLog[]
+
+  @@unique([organizationId, vehicleNumber])
+  @@index([organizationId])
+  @@index([fleetId])
+  @@index([status])
+  @@map("vehicles")
+}
+
+model VehicleStatusLog {
+  id          String        @id @default(uuid()) @db.Uuid
+  vehicleId   String        @map("vehicle_id") @db.Uuid
+  statusFrom  VehicleStatus @map("status_from")
+  statusTo    VehicleStatus @map("status_to")
+  reason      String?       @db.Text
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedById String        @map("updated_by_id") @db.Uuid
+
+  // Relations
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  updatedBy User    @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([vehicleId])
+  @@index([statusTo])
+  @@index([createdAt])
+  @@map("vehicle_status_logs")
+}
+
+model VehicleFleetAssignment {
+  id           String    @id @default(uuid()) @db.Uuid
+  vehicleId    String    @map("vehicle_id") @db.Uuid
+  fleetId      String    @map("fleet_id") @db.Uuid
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  unassignedAt DateTime? @map("unassigned_at")
+  assignedById String    @map("assigned_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  fleet      Fleet   @relation(fields: [fleetId], references: [id], onDelete: Restrict)
+  assignedBy User    @relation("FleetAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@index([vehicleId])
+  @@index([fleetId])
+  @@index([assignedAt])
+  // Enforce single-active-assignment constraint (only one with unassignedAt IS NULL per vehicle) via a partial unique index in custom migration.
+  @@map("vehicle_fleet_assignments")
+}
+
+model Driver {
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @unique @map("user_id") @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  employeeCode      String          @map("employee_code") @db.VarChar(50)
+  licenseNumber     String          @unique @map("license_number") @db.VarChar(50)
+  licenseCategory   LicenseCategory @map("license_category")
+  licenseIssuedAt   DateTime        @map("license_issued_at") @db.Date
+  licenseExpiryDate DateTime        @map("license_expiry_date") @db.Date
+  // Comments/validation: safety score must be between 0 and 100
+  safetyScore       Decimal         @map("safety_score") @db.Decimal(5, 2)
+  status            DriverStatus    @default(AVAILABLE)
+  joinedAt          DateTime        @default(now()) @map("joined_at")
+  retiredAt         DateTime?       @map("retired_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  deletedAt         DateTime?       @map("deleted_at")
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  trips        Trip[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("drivers")
+}
+
+model Location {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @db.VarChar(255)
+  code        String       @db.VarChar(100)
+  type        LocationType
+  parentId    String?      @map("parent_id") @db.Uuid
+  latitude    Decimal?     @db.Decimal(10, 7)
+  longitude   Decimal?     @db.Decimal(10, 7)
+  timezone    String?      @db.VarChar(100)
+  countryCode String?      @map("country_code") @db.VarChar(10)
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  parent           Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children         Location[] @relation("LocationHierarchy")
+  sourceTrips      Trip[]     @relation("TripSourceLocation")
+  destinationTrips Trip[]     @relation("TripDestinationLocation")
+
+  // Validation comments: Latitude must be between -90 and 90. Longitude must be between -180 and 180.
+  // Location seeds for Indian states and cities will be managed separately from coordinates files.
+  @@unique([parentId, name, type])
+  @@index([name])
+  @@index([code])
+  @@index([type])
+  @@index([parentId])
+  @@index([countryCode])
+  @@map("locations")
+}
+
+model Trip {
+  id                    String       @id @default(uuid()) @db.Uuid
+  organizationId        String       @map("organization_id") @db.Uuid
+  tripNumber            String       @map("trip_number") @db.VarChar(100)
+  sourceLocationId      String       @map("source_location_id") @db.Uuid
+  destinationLocationId String       @map("destination_location_id") @db.Uuid
+  fleetId               String?      @map("fleet_id") @db.Uuid
+  vehicleId             String       @map("vehicle_id") @db.Uuid
+  driverId              String       @map("driver_id") @db.Uuid
+  scheduledStartAt      DateTime     @map("scheduled_start_at")
+  scheduledEndAt        DateTime     @map("scheduled_end_at")
+  actualStartAt         DateTime?    @map("actual_start_at")
+  actualEndAt           DateTime?    @map("actual_end_at")
+  distance              Decimal      @db.Decimal(10, 2)
+  distanceUnit          DistanceUnit @map("distance_unit")
+  status                TripStatus   @default(DRAFT)
+  notes                 String?      @db.Text
+  createdById           String       @map("created_by_id") @db.Uuid
+  updatedById           String?      @map("updated_by_id") @db.Uuid
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  deletedAt             DateTime?    @map("deleted_at")
+
+  // Relations
+  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sourceLocation      Location        @relation("TripSourceLocation", fields: [sourceLocationId], references: [id], onDelete: Restrict)
+  destinationLocation Location        @relation("TripDestinationLocation", fields: [destinationLocationId], references: [id], onDelete: Restrict)
+  fleet               Fleet?          @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  vehicle             Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver              Driver          @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  createdBy           User            @relation("TripCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy           User?           @relation("TripUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  statusLogs          TripStatusLog[]
+  expenses            Expense[]
+  fuelLogs            FuelLog[]
+
+  @@unique([organizationId, tripNumber])
+  @@index([organizationId])
+  @@index([fleetId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([scheduledStartAt])
+  @@index([actualStartAt])
+  @@map("trips")
+}
+
+model TripStatusLog {
+  id          String     @id @default(uuid()) @db.Uuid
+  tripId      String     @map("trip_id") @db.Uuid
+  statusFrom  TripStatus @map("status_from")
+  statusTo    TripStatus @map("status_to")
+  reason      String?    @db.Text
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedById String     @map("updated_by_id") @db.Uuid
+
+  // Relations
+  trip      Trip @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  updatedBy User @relation(fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([tripId])
+  @@index([statusTo])
+  @@index([createdAt])
+  @@map("trip_status_logs")
+}
+
+model MaintenanceRecord {
+  id                   String            @id @default(uuid()) @db.Uuid
+  organizationId       String            @map("organization_id") @db.Uuid
+  fleetId              String?           @map("fleet_id") @db.Uuid
+  vehicleId            String            @map("vehicle_id") @db.Uuid
+  maintenanceType      MaintenanceType   @map("maintenance_type")
+  description          String?           @db.Text
+  status               MaintenanceStatus @default(SCHEDULED)
+  startedAt            DateTime          @map("started_at")
+  expectedCompletionAt DateTime?         @map("expected_completion_at")
+  completedAt          DateTime?         @map("completed_at")
+  odometerReading      Decimal?          @map("odometer_reading") @db.Decimal(10, 2)
+  estimatedCost        Decimal?          @map("estimated_cost") @db.Decimal(12, 2)
+  actualCost           Decimal?          @map("actual_cost") @db.Decimal(12, 2)
+  serviceProvider      String?           @map("service_provider") @db.VarChar(255)
+  invoiceNumber        String?           @map("invoice_number") @db.VarChar(100)
+  notes                String?           @db.Text
+  createdById          String            @map("created_by_id") @db.Uuid
+  updatedById          String?           @map("updated_by_id") @db.Uuid
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  deletedAt            DateTime?         @map("deleted_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fleet        Fleet?       @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  vehicle      Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  createdBy    User         @relation("MaintenanceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?        @relation("MaintenanceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([vehicleId])
+  @@index([fleetId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([completedAt])
+  @@map("maintenance_records")
+}
+
+model Expense {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  fleetId         String?       @map("fleet_id") @db.Uuid
+  vehicleId       String?       @map("vehicle_id") @db.Uuid
+  tripId          String?       @map("trip_id") @db.Uuid
+  expenseType     ExpenseType   @map("expense_type")
+  amount          Decimal       @db.Decimal(12, 2)
+  currency        String        @default("INR") @db.VarChar(3)
+  expenseDate     DateTime      @map("expense_date") @db.Date
+  referenceNumber String?       @map("reference_number") @db.VarChar(100)
+  description     String?       @db.Text
+  receiptUrl      String?       @map("receipt_url") @db.VarChar(500)
+  status          ExpenseStatus @default(DRAFT)
+  createdById     String        @map("created_by_id") @db.Uuid
+  approvedById    String?       @map("approved_by_id") @db.Uuid
+  approvedAt      DateTime?     @map("approved_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  fleet        Fleet?       @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  vehicle      Vehicle?     @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  trip         Trip?        @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy   User?        @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  fuelLog      FuelLog?
+
+  @@index([organizationId])
+  @@index([fleetId])
+  @@index([vehicleId])
+  @@index([tripId])
+  @@index([expenseType])
+  @@index([status])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+model FuelLog {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @map("organization_id") @db.Uuid
+  expenseId       String           @unique @map("expense_id") @db.Uuid
+  fleetId         String?          @map("fleet_id") @db.Uuid
+  vehicleId       String           @map("vehicle_id") @db.Uuid
+  tripId          String?          @map("trip_id") @db.Uuid
+  fuelType        FuelType         @map("fuel_type")
+  quantity        Decimal          @db.Decimal(10, 2)
+  quantityUnit    FuelQuantityUnit @map("quantity_unit")
+  pricePerUnit    Decimal          @map("price_per_unit") @db.Decimal(10, 2)
+  totalCost       Decimal          @map("total_cost") @db.Decimal(12, 2)
+  fuelledAt       DateTime         @map("fuelled_at") @db.Date
+  odometerReading Decimal          @map("odometer_reading") @db.Decimal(10, 2)
+  fuelStationName String?          @map("fuel_station_name") @db.VarChar(255)
+  receiptNumber   String?          @map("receipt_number") @db.VarChar(100)
+  notes           String?          @db.Text
+  createdById     String           @map("created_by_id") @db.Uuid
+  updatedById     String?          @map("updated_by_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  expense      Expense      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  fleet        Fleet?       @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  vehicle      Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  trip         Trip?        @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdBy    User         @relation("FuelLogCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?        @relation("FuelLogUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  // Validation comments:
+  // - totalCost should normally equal quantity * pricePerUnit but is stored directly to avoid recalculation issues or rounding variations from receipts.
+  @@index([organizationId])
+  @@index([vehicleId])
+  @@index([tripId])
+  @@index([fuelledAt])
+  @@index([fuelType])
+  @@map("fuel_logs")
 }

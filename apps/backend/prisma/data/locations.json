@@ -1,0 +1,149 @@
+{
+  "country": {
+    "name": "India",
+    "code": "IN",
+    "type": "COUNTRY",
+    "countryCode": "IN",
+    "timezone": "Asia/Kolkata",
+    "latitude": 20.5937,
+    "longitude": 78.9629
+  },
+  "states": [
+    {
+      "name": "Maharashtra",
+      "code": "MH",
+      "type": "STATE",
+      "countryCode": "IN",
+      "timezone": "Asia/Kolkata",
+      "latitude": 19.7515,
+      "longitude": 75.7139,
+      "cities": [
+        {
+          "name": "Mumbai",
+          "code": "BOM",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 19.0760,
+          "longitude": 72.8777
+        },
+        {
+          "name": "Pune",
+          "code": "PNQ",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 18.5204,
+          "longitude": 73.8567
+        },
+        {
+          "name": "Nagpur",
+          "code": "NAG",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 21.1458,
+          "longitude": 79.0882
+        }
+      ]
+    },
+    {
+      "name": "Karnataka",
+      "code": "KA",
+      "type": "STATE",
+      "countryCode": "IN",
+      "timezone": "Asia/Kolkata",
+      "latitude": 15.3173,
+      "longitude": 75.7139,
+      "cities": [
+        {
+          "name": "Bengaluru",
+          "code": "BLR",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 12.9716,
+          "longitude": 77.5946
+        },
+        {
+          "name": "Mysuru",
+          "code": "MYS",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 12.2958,
+          "longitude": 76.6394
+        }
+      ]
+    },
+    {
+      "name": "Delhi",
+      "code": "DL",
+      "type": "STATE",
+      "countryCode": "IN",
+      "timezone": "Asia/Kolkata",
+      "latitude": 28.7041,
+      "longitude": 77.1025,
+      "cities": [
+        {
+          "name": "New Delhi",
+          "code": "DEL",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 28.6139,
+          "longitude": 77.2090
+        }
+      ]
+    },
+    {
+      "name": "Tamil Nadu",
+      "code": "TN",
+      "type": "STATE",
+      "countryCode": "IN",
+      "timezone": "Asia/Kolkata",
+      "latitude": 11.1271,
+      "longitude": 78.6569,
+      "cities": [
+        {
+          "name": "Chennai",
+          "code": "MAA",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 13.0827,
+          "longitude": 80.2707
+        },
+        {
+          "name": "Coimbatore",
+          "code": "CJB",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 11.0168,
+          "longitude": 76.9558
+        }
+      ]
+    },
+    {
+      "name": "Telangana",
+      "code": "TG",
+      "type": "STATE",
+      "countryCode": "IN",
+      "timezone": "Asia/Kolkata",
+      "latitude": 18.1124,
+      "longitude": 79.0193,
+      "cities": [
+        {
+          "name": "Hyderabad",
+          "code": "HYD",
+          "type": "CITY",
+          "countryCode": "IN",
+          "timezone": "Asia/Kolkata",
+          "latitude": 17.3850,
+          "longitude": 78.4867
+        }
+      ]
+    }
+  ]
+}
