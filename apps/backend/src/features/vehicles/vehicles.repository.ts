@@ -2,7 +2,11 @@ import { prisma } from "../../config/prisma";
 import { Prisma, VehicleStatus } from "@prisma/client";
 
 export class VehiclesRepository {
-  async getVehicles(organizationId: string, registrationNumber?: string, status?: VehicleStatus) {
+  async getVehicles(
+    organizationId: string,
+    registrationNumber?: string,
+    status?: VehicleStatus,
+  ) {
     const whereClause: any = {
       organizationId,
       deletedAt: null,

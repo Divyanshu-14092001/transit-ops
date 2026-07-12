@@ -18,7 +18,10 @@ export class DriversController {
     });
 
     if (!userOrg) {
-      throw new CustomError("No active organization found for this user.", HTTP_STATUS.BAD_REQUEST);
+      throw new CustomError(
+        "No active organization found for this user.",
+        HTTP_STATUS.BAD_REQUEST,
+      );
     }
 
     return userOrg.organizationId;
@@ -38,7 +41,10 @@ export class DriversController {
         organizationId = await this.getActiveOrganization(req.user.id);
       }
 
-      const result = await this.driversService.getDrivers(query, organizationId);
+      const result = await this.driversService.getDrivers(
+        query,
+        organizationId,
+      );
 
       if (query.licenseNumber && req.user && result.items.length > 0) {
         const userOrgId = await this.getActiveOrganization(req.user.id);

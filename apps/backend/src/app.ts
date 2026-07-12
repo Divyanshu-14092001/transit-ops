@@ -7,6 +7,7 @@ import { authRouter } from "./features/auth/auth.routes";
 import { driversRouter } from "./features/drivers/drivers.routes";
 import { vehiclesRouter } from "./features/vehicles/vehicles.routes";
 import { tripsRouter } from "./features/trips/trips.routes";
+import { maintenanceRouter } from "./features/maintenance/maintenance.routes";
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/drivers", driversRouter);
 app.use("/api/vehicles", vehiclesRouter);
 app.use("/api/trips", tripsRouter);
+app.use("/api/maintenance", maintenanceRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {

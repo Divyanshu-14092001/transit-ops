@@ -17,15 +17,25 @@ export class VehiclesService {
     });
 
     if (!userOrg) {
-      throw new CustomError("Unauthorized: User does not belong to any active organization", HTTP_STATUS.UNAUTHORIZED);
+      throw new CustomError(
+        "Unauthorized: User does not belong to any active organization",
+        HTTP_STATUS.UNAUTHORIZED,
+      );
     }
 
     return userOrg.organizationId;
   }
 
-  async getVehicles(query: { registrationNumber?: string; status?: VehicleStatus }, userId: string) {
+  async getVehicles(
+    query: { registrationNumber?: string; status?: VehicleStatus },
+    userId: string,
+  ) {
     const organizationId = await this.getActiveOrganizationId(userId);
-    return this.vehiclesRepository.getVehicles(organizationId, query.registrationNumber, query.status);
+    return this.vehiclesRepository.getVehicles(
+      organizationId,
+      query.registrationNumber,
+      query.status,
+    );
   }
 
   async createVehicle(input: CreateVehicleInput, userId: string) {
@@ -38,7 +48,10 @@ export class VehiclesService {
     );
     if (!fleet) {
       if (input.fleetId) {
-        throw new CustomError("The specified fleet is invalid or inactive for your organization", HTTP_STATUS.BAD_REQUEST);
+        throw new CustomError(
+          "The specified fleet is invalid or inactive for your organization",
+          HTTP_STATUS.BAD_REQUEST,
+        );
       }
       // Create a default fleet if no fleet exists at all
       fleet = await this.vehiclesRepository.createDefaultFleet(organizationId);
