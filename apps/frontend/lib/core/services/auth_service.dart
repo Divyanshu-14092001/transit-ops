@@ -1,20 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart' hide Response;
 import 'package:transitops_frontend/config/api_config.dart';
-import 'storage_service.dart';
+
 import 'access_control_service.dart';
+import 'auth_models.dart';
+import 'storage_service.dart';
 
 class AuthService extends GetxService {
   static AuthService get to => Get.find();
 
   final RxBool isLoggedIn = false.obs;
   final RxnString token = RxnString();
-  final RxnString username = RxnString();
+  final Rxn<AuthUser> user = Rxn<AuthUser>();
+  final RxnString lastError = RxnString();
 
   late final Dio _dio;
-  
-  // Base configuration: Can be configured via environment variables
-  static final String baseUrl = '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/api';
+
+  static final String baseUrl =
+      '${ApiConfig.baseUrl}/api';
 
   @override
   void onInit() {
@@ -22,24 +25,104 @@ class AuthService extends GetxService {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 3),
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-      },
+      receiveTimeout: const Duration(seconds: 10),
+      headers: <String, String>{'Content-Type': 'application/json'},
     ));
+  }
 
-    // Restore session on boot
-    final String? cachedToken = StorageService.to.read('auth_token') as String?;
-    final String? cachedUser = StorageService.to.read('auth_user') as String?;
-    final List<dynamic>? cachedPerms = StorageService.to.read('auth_permissions') as List<dynamic>?;
+  Future<bool> restoreSession() async {
+    final String? cachedToken = await StorageService.to.readAccessToken();
+    final Map<String, dynamic>? cachedProfile = await StorageService.to.readProfile();
 
-    if (cachedToken != null && cachedUser != null && cachedPerms != null) {
-      token.value = cachedToken;
-      username.value = cachedUser;
-      isLoggedIn.value = true;
-      AccessControlService.to.loadPermissions(cachedPerms.cast<String>());
-      _setupDioAuthorization(cachedToken);
+    if (cachedToken == null || cachedProfile == null) {
+      await _clearSession();
+      return false;
     }
+
+    _setupDioAuthorization(cachedToken);
+
+    try {
+      final Response<dynamic> response =
+          await _dio.get<dynamic>('/auth/verify-access-token');
+      final Map<String, dynamic> body = _responseBody(response.data);
+      final Map<String, dynamic> data = _jsonMap(body['data']);
+      final AuthUser verifiedUser = AuthUser.fromJson(_jsonMap(data['user']));
+      await _applySession(cachedToken, verifiedUser, persist: true);
+      return true;
+    } on DioException catch (error) {
+      lastError.value = _errorMessage(error);
+      await _clearSession();
+      return false;
+    } on FormatException catch (error) {
+      lastError.value = error.message;
+      await _clearSession();
+      return false;
+    }
+  }
+
+  Future<bool> login(String email, String password) async {
+    lastError.value = null;
+
+    try {
+      final Response<dynamic> response = await _dio.post<dynamic>(
+        '/auth/login',
+        data: <String, String>{
+          'email': email.trim(),
+          'password': password,
+        },
+      );
+      final Map<String, dynamic> body = _responseBody(response.data);
+      final Map<String, dynamic> data = _jsonMap(body['data']);
+      final String accessToken = data['accessToken'] as String;
+      final AuthUser loggedInUser = AuthUser.fromJson(_jsonMap(data['user']));
+
+      await _applySession(accessToken, loggedInUser, persist: true);
+      return true;
+    } on DioException catch (error) {
+      lastError.value = _errorMessage(error);
+      return false;
+    } on FormatException catch (error) {
+      lastError.value = error.message;
+      return false;
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dio.post<dynamic>('/auth/logout');
+    } on DioException {
+      // Logout is best-effort on the stateless backend. Local credentials must
+      // always be removed even if the request cannot reach the server.
+    } finally {
+      await _clearSession();
+    }
+  }
+
+  Future<void> _applySession(
+    String accessToken,
+    AuthUser authenticatedUser, {
+    required bool persist,
+  }) async {
+    token.value = accessToken;
+    user.value = authenticatedUser;
+    isLoggedIn.value = true;
+    AccessControlService.to.loadPermissions(authenticatedUser.permissions);
+    _setupDioAuthorization(accessToken);
+
+    if (persist) {
+      await StorageService.to.writeAccessToken(accessToken);
+      await StorageService.to.writeProfile(authenticatedUser.toJson());
+    }
+  }
+
+  Future<void> _clearSession() async {
+    token.value = null;
+    user.value = null;
+    isLoggedIn.value = false;
+    AccessControlService.to.clearPermissions();
+    _clearDioAuthorization();
+    await StorageService.to.removeAccessToken();
+    await StorageService.to.removeProfile();
   }
 
   void _setupDioAuthorization(String userToken) {
@@ -50,63 +133,31 @@ class AuthService extends GetxService {
     _dio.options.headers.remove('Authorization');
   }
 
-  Future<bool> login(String email, String password) async {
-    // Delay slightly to simulate a responsive loading state
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+  Map<String, dynamic> _responseBody(dynamic value) => _jsonMap(value);
 
-    if (email.trim() == 'driver@transitops.com') {
-      return _handleMockLogin(
-        'mock-jwt-driver-token',
-        'John Driver',
-        const <String>[
-          'dashboard:view',
-          'trip:read', 'trip:complete',
-          'fuel:create',
-        ],
-      );
-    } else {
-      final String displayName = email.isNotEmpty && email.contains('@')
-          ? email.split('@')[0]
-          : 'Fleet Manager';
-      return _handleMockLogin(
-        'mock-jwt-admin-token',
-        displayName.substring(0, 1).toUpperCase() + displayName.substring(1),
-        const <String>[
-          'dashboard:view',
-          'vehicle:read', 'vehicle:create', 'vehicle:update', 'vehicle:delete',
-          'driver:read', 'driver:create', 'driver:update', 'driver:delete',
-          'trip:read', 'trip:create', 'trip:dispatch', 'trip:complete', 'trip:cancel',
-          'maintenance:read', 'maintenance:create', 'maintenance:update', 'maintenance:close',
-          'fuel:create', 'expense:create', 'report:view', 'report:export',
-        ],
-      );
+  Map<String, dynamic> _jsonMap(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      return value;
     }
+    if (value is Map<dynamic, dynamic>) {
+      return value.cast<String, dynamic>();
+    }
+    throw const FormatException('The server returned an invalid response.');
   }
 
-  bool _handleMockLogin(String authToken, String name, List<String> perms) {
-    token.value = authToken;
-    username.value = name;
-    isLoggedIn.value = true;
+  String _errorMessage(DioException error) {
+    final dynamic responseData = error.response?.data;
+    if (responseData is Map<dynamic, dynamic>) {
+      final dynamic message = responseData['message'];
+      if (message is String && message.isNotEmpty) {
+        return message;
+      }
+    }
 
-    StorageService.to.write('auth_token', authToken);
-    StorageService.to.write('auth_user', name);
-    StorageService.to.write('auth_permissions', perms);
-
-    AccessControlService.to.loadPermissions(perms);
-    _setupDioAuthorization(authToken);
-    return true;
-  }
-
-  void logout() {
-    token.value = null;
-    username.value = null;
-    isLoggedIn.value = false;
-
-    StorageService.to.remove('auth_token');
-    StorageService.to.remove('auth_user');
-    StorageService.to.remove('auth_permissions');
-
-    AccessControlService.to.clearPermissions();
-    _clearDioAuthorization();
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'Unable to reach the server. Please check your connection.';
+    }
+    return 'Unable to complete the request. Please try again.';
   }
 }

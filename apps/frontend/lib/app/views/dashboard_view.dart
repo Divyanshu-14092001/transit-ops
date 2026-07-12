@@ -59,21 +59,36 @@ class DashboardView extends GetView<DashboardController> {
                   CircleAvatar(
                     backgroundColor: theme.colorScheme.primary,
                     radius: 18,
-                    child: Obx(() => Text(
-                          AuthService.to.username.value?.substring(0, 1).toUpperCase() ?? 'U',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                        )),
+                    child: Obx(() {
+                      final String fullName =
+                          AuthService.to.user.value?.fullName.trim() ?? '';
+                      return Text(
+                        fullName.isEmpty ? 'U' : fullName.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold),
+                      );
+                    }),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Obx(() => Text(AuthService.to.username.value ?? 'User Session', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                        Text(
-                          AccessControlService.to.hasPermission('vehicle:create') ? 'Fleet Manager' : 'Driver',
-                          style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                        ),
+                        Obx(() => Text(
+                              AuthService.to.user.value?.fullName ?? 'User Session',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
+                            )),
+                        Obx(() => Text(
+                              AuthService.to.user.value?.organizationName ??
+                                  'No organization assigned',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.6)),
+                            )),
                       ],
                     ),
                   ),
@@ -91,27 +106,30 @@ class DashboardView extends GetView<DashboardController> {
                 children: <Widget>[
                   _buildSidebarItem(context, label: 'Dashboard', route: '/dashboard/home', icon: Icons.dashboard_outlined),
                   AccessControl(
-                    permission: 'vehicle:read',
+                    permission: BackendPermissions.fleetRead,
                     child: _buildSidebarItem(context, label: 'Vehicles', route: '/dashboard/vehicles', icon: Icons.directions_bus_outlined),
                   ),
                   AccessControl(
-                    permission: 'driver:read',
+                    permission: BackendPermissions.driverAssign,
                     child: _buildSidebarItem(context, label: 'Drivers', route: '/dashboard/drivers', icon: Icons.people_outline),
                   ),
                   AccessControl(
-                    permission: 'trip:read',
+                    permission: BackendPermissions.tripUpdate,
                     child: _buildSidebarItem(context, label: 'Trips', route: '/dashboard/trips', icon: Icons.add_road),
                   ),
                   AccessControl(
-                    permission: 'maintenance:read',
+                    permission: BackendPermissions.maintenanceCreate,
                     child: _buildSidebarItem(context, label: 'Maintenance', route: '/dashboard/maintenance', icon: Icons.build_outlined),
                   ),
                   AccessControl(
-                    permission: 'expense:create',
+                    permission: BackendPermissions.expenseCreate,
                     child: _buildSidebarItem(context, label: 'Expenses & Finance', route: '/dashboard/expenses', icon: Icons.account_balance_wallet_outlined),
                   ),
                   _buildSidebarItem(context, label: 'Announcements', route: '/dashboard/announcements', icon: Icons.campaign_outlined),
-                  _buildSidebarItem(context, label: 'Developer & Audit', route: '/dashboard/dev-audit', icon: Icons.code_outlined),
+                  AccessControl(
+                    permission: BackendPermissions.authRead,
+                    child: _buildSidebarItem(context, label: 'Developer & Audit', route: '/dashboard/dev-audit', icon: Icons.code_outlined),
+                  ),
                 ],
               ),
             ),

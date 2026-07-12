@@ -34,7 +34,7 @@ class AuthController extends GetxController {
     } else {
       Get.snackbar(
         'Authentication Failed',
-        'Invalid credentials. Check connection or try admin@transitops.com.',
+        AuthService.to.lastError.value ?? 'Unable to sign in. Please try again.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red.withOpacity(0.9),
         colorText: Colors.white,

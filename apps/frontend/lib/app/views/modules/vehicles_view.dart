@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/access_control.dart';
+import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../controllers/dashboard_controller.dart';
 import 'dashboard_helpers.dart';
@@ -18,7 +19,7 @@ class VehiclesView extends GetView<DashboardController> {
       child: Obx(() => DashboardCard(
             title: 'Registered Vehicle Inventory',
             trailing: AccessControl(
-              permission: 'vehicle:create',
+              permission: BackendPermissions.fleetCreate,
               child: AppButton(
                 label: 'Register Vehicle',
                 icon: Icons.add,

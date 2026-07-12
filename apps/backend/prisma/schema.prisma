@@ -41,17 +41,14 @@ enum FleetStatus {
 }
 
 enum VehicleType {
-  BUS
   VAN
   TRUCK
-  CAR
   MINI_TRUCK
   TANKER
   OTHER
 }
 
 enum VehicleCapacityType {
-  PASSENGER
   WEIGHT
   VOLUME
 }
@@ -66,11 +63,8 @@ enum CapacityUnit {
 
 enum VehicleStatus {
   AVAILABLE
-  ASSIGNED
   ON_TRIP
   IN_SHOP
-  UNDER_MAINTENANCE
-  OUT_OF_SERVICE
   RETIRED
 }
 

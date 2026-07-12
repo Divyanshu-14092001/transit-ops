@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/access_control.dart';
+import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../controllers/dashboard_controller.dart';
 import 'dashboard_helpers.dart';
@@ -15,7 +16,7 @@ class TripsView extends GetView<DashboardController> {
       child: Obx(() => DashboardCard(
             title: 'Current Dispatch Assignments',
             trailing: AccessControl(
-              permission: 'trip:create',
+              permission: BackendPermissions.tripCreate,
               child: AppButton(
                 label: 'Dispatch New Trip',
                 icon: Icons.add_road,

@@ -104,46 +104,6 @@ class LoginView extends GetView<AuthController> {
                 onPressed: controller.login,
               )),
           const SizedBox(height: 32),
-          // Demo hints for hackathon evaluators
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.colorScheme.secondary.withOpacity(0.2),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: theme.colorScheme.secondary,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Hackathon Demo Credentials',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Manager: admin@transitops.com\nDriver: driver@transitops.com\nPassword: any password (min 6 chars)',
-                  style: TextStyle(fontSize: 11, height: 1.4),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

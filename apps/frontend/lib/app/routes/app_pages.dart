@@ -49,13 +49,13 @@ class AppPages {
       children: <GetPage<dynamic>>[
         // Default sub-route — matched when navigating to /dashboard/home
         GetPage<dynamic>(name: '/home', page: () => const HomeView()),
-        GetPage<dynamic>(name: '/vehicles',      page: () => const VehiclesView(),      middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: 'vehicle:read')]),
-        GetPage<dynamic>(name: '/drivers',       page: () => const DriversView(),       middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: 'driver:read')]),
-        GetPage<dynamic>(name: '/trips',         page: () => const TripsView(),         middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: 'trip:read')]),
-        GetPage<dynamic>(name: '/maintenance',   page: () => const MaintenanceView(),   middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: 'maintenance:read')]),
-        GetPage<dynamic>(name: '/expenses',      page: () => const ExpensesView()),
+        GetPage<dynamic>(name: '/vehicles',      page: () => const VehiclesView(),      middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.fleetRead)]),
+        GetPage<dynamic>(name: '/drivers',       page: () => const DriversView(),       middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.driverAssign)]),
+        GetPage<dynamic>(name: '/trips',         page: () => const TripsView(),         middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.tripUpdate)]),
+        GetPage<dynamic>(name: '/maintenance',   page: () => const MaintenanceView(),   middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.maintenanceCreate)]),
+        GetPage<dynamic>(name: '/expenses',      page: () => const ExpensesView(),      middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.expenseCreate)]),
         GetPage<dynamic>(name: '/announcements', page: () => const AnnouncementsView()),
-        GetPage<dynamic>(name: '/dev-audit',     page: () => const DevAuditView()),
+        GetPage<dynamic>(name: '/dev-audit',     page: () => const DevAuditView(),      middlewares: <GetMiddleware>[PermissionGuard(requiredPermission: BackendPermissions.authRead)]),
       ],
     ),
     GetPage<dynamic>(

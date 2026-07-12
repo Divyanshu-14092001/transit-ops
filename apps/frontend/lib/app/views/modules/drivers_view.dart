@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/access_control.dart';
+import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../controllers/dashboard_controller.dart';
 import 'dashboard_helpers.dart';
@@ -17,7 +18,7 @@ class DriversView extends GetView<DashboardController> {
       child: Obx(() => DashboardCard(
             title: 'Registered Driver Directory',
             trailing: AccessControl(
-              permission: 'driver:create',
+              permission: BackendPermissions.driverAssign,
               child: AppButton(
                 label: 'Register Driver',
                 icon: Icons.add,
