@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../controllers/dashboard_controller.dart';
 import '../../core/services/auth_service.dart';
@@ -122,7 +123,7 @@ class DashboardView extends GetView<DashboardController> {
                   
                   AccessControl(
                     permission: 'vehicle:read',
-                    child: _buildSidebarItem(context, label: 'Fleet & Vehicles', icon: Icons.directions_bus_outlined),
+                    child: _buildSidebarItem(context, label: 'Vehicles', icon: Icons.directions_bus_outlined),
                   ),
                   
                   AccessControl(
@@ -302,7 +303,7 @@ class DashboardView extends GetView<DashboardController> {
   Widget _buildDynamicBody(BuildContext context) {
     final String selected = controller.selectedModule.value;
     switch (selected) {
-      case 'Fleet & Vehicles':
+      case 'Vehicles':
         return _buildFleetSection(context);
       case 'Dispatched Trips':
         return _buildTripsSection(context);
@@ -584,52 +585,529 @@ class DashboardView extends GetView<DashboardController> {
 
   Widget _buildFleetSection(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final List<Map<String, String>> vehiclesList = <Map<String, String>>[
-      <String, String>{'sl': '1', 'reg': 'MH-12-PQ-8901', 'type': 'Electric Cargo Truck', 'route': 'Mumbai - Pune', 'status': 'Active'},
-      <String, String>{'sl': '2', 'reg': 'DL-01-AB-1234', 'type': 'Medium Delivery Van', 'route': 'Delhi - Noida', 'status': 'Active'},
-      <String, String>{'sl': '3', 'reg': 'KA-03-XY-5678', 'type': 'Heavy Duty Tipper', 'route': 'Bengaluru - Mysore', 'status': 'Service Down'},
-      <String, String>{'sl': '4', 'reg': 'TS-09-RT-4321', 'type': 'Electric Cargo Truck', 'route': 'Hyderabad Depot Loop', 'status': 'Active'},
-    ];
 
-    return DashboardCard(
-      title: 'Registered fleet inventory',
-      trailing: AccessControl(
-        permission: 'vehicle:create',
-        child: AppButton(
-          label: 'Register Vehicle',
-          icon: Icons.add,
-          onPressed: () => _showActionSnackbar('Register Vehicle Form Opened'),
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const <DataColumn>[
-            DataColumn(label: Text('S.L')),
-            DataColumn(label: Text('Registration No')),
-            DataColumn(label: Text('Vehicle Type')),
-            DataColumn(label: Text('Active Route')),
-            DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Action')),
+    return Obx(() => DashboardCard(
+          title: 'Registered Vehicle Inventory',
+          trailing: AccessControl(
+            permission: 'vehicle:create',
+            child: AppButton(
+              label: 'Register Vehicle',
+              icon: Icons.add,
+              onPressed: () => _showRegisterVehicleDialog(context),
+            ),
+          ),
+          child: controller.vehiclesList.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No vehicles registered yet.'),
+                  ),
+                )
+              : SizedBox(
+                  width: double.infinity,
+                  child: DataTable(
+                    dataRowMinHeight: 52,
+                    dataRowMaxHeight: 64,
+                    columns: const <DataColumn>[
+                      DataColumn(label: Text('S.L')),
+                      DataColumn(label: Text('Vehicle Details')),
+                      DataColumn(label: Text('Identifiers')),
+                      DataColumn(label: Text('Specs & Type')),
+                      DataColumn(label: Text('Usage & Cost')),
+                      DataColumn(label: Text('Status')),
+                      DataColumn(label: Text('Action')),
+                    ],
+                    rows: List<DataRow>.generate(controller.vehiclesList.length, (int index) {
+                      final VehicleModel item = controller.vehiclesList[index];
+                      Color statusColor;
+                      switch (item.status) {
+                        case VehicleStatus.Available:
+                          statusColor = Colors.green;
+                          break;
+                        case VehicleStatus.OnTrip:
+                          statusColor = Colors.blue;
+                          break;
+                        case VehicleStatus.InShop:
+                          statusColor = Colors.orange;
+                          break;
+                        case VehicleStatus.Retired:
+                          statusColor = Colors.grey;
+                          break;
+                      }
+
+                      String typeString = item.type == VehicleType.MiniTruck ? 'Mini Truck' : (item.type == VehicleType.MiniVan ? 'Mini Van' : item.type.name);
+                      String unitString = item.capacityUnit == CapacityUnit.Kg ? 'Kg' : 'Litres';
+
+                      return DataRow(cells: <DataCell>[
+                        DataCell(Text('${index + 1}')),
+                        // Combined Name & Plate Number
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(item.number, style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        // Combined Registration & Chasis
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text('Reg: ${item.registrationNumber}', style: const TextStyle(fontSize: 11)),
+                            const SizedBox(height: 2),
+                            Text('Chasis: ${item.chasisNumber}', style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        // Combined Type & Capacity
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(typeString, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 2),
+                            Text('Cap: ${item.maxLoadCapacity.toStringAsFixed(0)} $unitString', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        // Combined Odometer & Cost
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text('${item.odometer.toStringAsFixed(0)} km', style: const TextStyle(fontSize: 12)),
+                            const SizedBox(height: 2),
+                            Text('Cost: ₹${_formatIndianCost(item.acquisitionCost)}', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        DataCell(StatusBadge(
+                          status: item.status.name == 'OnTrip' ? 'On Trip' : (item.status.name == 'InShop' ? 'In Shop' : item.status.name),
+                          color: statusColor,
+                        )),
+                        DataCell(Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18),
+                              onPressed: () => _showEditVehicleDialog(context, index),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              onPressed: () {
+                                controller.vehiclesList.removeAt(index);
+                                _showActionSnackbar('Vehicle removed successfully.');
+                              },
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+        ));
+  }
+
+  void _showRegisterVehicleDialog(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    final TextEditingController nameCtrl = TextEditingController();
+    final TextEditingController numberCtrl = TextEditingController();
+    final TextEditingController regCtrl = TextEditingController();
+    final TextEditingController chasisCtrl = TextEditingController();
+    final TextEditingController capacityCtrl = TextEditingController();
+    final TextEditingController odometerCtrl = TextEditingController();
+    final TextEditingController costCtrl = TextEditingController();
+
+    VehicleType selectedType = VehicleType.Van;
+    CapacityUnit selectedUnit = CapacityUnit.Kg;
+    VehicleStatus selectedStatus = VehicleStatus.Available;
+
+    Get.dialog<dynamic>(
+      AlertDialog(
+        title: Row(
+          children: <Widget>[
+            Icon(Icons.local_shipping_outlined, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            const Text('Register New Vehicle'),
           ],
-          rows: vehiclesList.map((Map<String, String> item) {
-            final Color statusColor = item['status'] == 'Active' ? theme.colorScheme.secondary : theme.colorScheme.error;
-            return DataRow(cells: <DataCell>[
-              DataCell(Text(item['sl']!)),
-              DataCell(Text(item['reg']!, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text(item['type']!)),
-              DataCell(Text(item['route']!)),
-              DataCell(StatusBadge(status: item['status']!, color: statusColor)),
-              DataCell(Row(
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  IconButton(icon: const Icon(Icons.edit, size: 18), onPressed: () {}),
-                  IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red), onPressed: () {}),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Vehicle Name (e.g. Tata Ace)'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: numberCtrl,
+                    decoration: const InputDecoration(labelText: 'Vehicle Plate Number'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: regCtrl,
+                    decoration: const InputDecoration(labelText: 'Registration Number (Unique)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      final bool isDuplicate = controller.vehiclesList.any((VehicleModel veh) =>
+                          veh.registrationNumber.trim().toLowerCase() == v.trim().toLowerCase());
+                      if (isDuplicate) return 'Registration number must be unique';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: chasisCtrl,
+                    decoration: const InputDecoration(labelText: 'Chasis Number'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: <Widget>[
+                          DropdownButtonFormField<VehicleType>(
+                            value: selectedType,
+                            decoration: const InputDecoration(labelText: 'Vehicle Type'),
+                            items: VehicleType.values
+                                .map((VehicleType t) => DropdownMenuItem<VehicleType>(
+                                      value: t,
+                                      child: Text(t == VehicleType.MiniTruck ? 'Mini Truck' : (t == VehicleType.MiniVan ? 'Mini Van' : t.name)),
+                                    ))
+                                .toList(),
+                            onChanged: (VehicleType? v) {
+                              if (v != null) setState(() => selectedType = v);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: capacityCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: 'Max Load Capacity'),
+                                  validator: (String? v) {
+                                    if (v == null || v.trim().isEmpty) return 'Required';
+                                    if (double.tryParse(v) == null) return 'Must be a number';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<CapacityUnit>(
+                                  value: selectedUnit,
+                                  decoration: const InputDecoration(labelText: 'Unit'),
+                                  items: CapacityUnit.values
+                                      .map((CapacityUnit u) => DropdownMenuItem<CapacityUnit>(
+                                            value: u,
+                                            child: Text(u.name),
+                                          ))
+                                      .toList(),
+                                  onChanged: (CapacityUnit? u) {
+                                    if (u != null) setState(() => selectedUnit = u);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: odometerCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Odometer (Current km)',
+                              helperText: 'Total cumulative mileage covered (in km)',
+                            ),
+                            validator: (String? v) {
+                              if (v == null || v.trim().isEmpty) return 'Required';
+                              if (double.tryParse(v) == null) return 'Must be a number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: costCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly,
+                              IndianCurrencyInputFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Acquisition Cost',
+                              prefixText: '₹ ',
+                            ),
+                            validator: (String? v) {
+                              if (v == null || v.trim().isEmpty) return 'Required';
+                              final String cleaned = v.replaceAll(',', '').trim();
+                              if (double.tryParse(cleaned) == null) return 'Must be a number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<VehicleStatus>(
+                            value: selectedStatus,
+                            decoration: const InputDecoration(labelText: 'Status'),
+                            items: VehicleStatus.values
+                                .map((VehicleStatus s) => DropdownMenuItem<VehicleStatus>(
+                                      value: s,
+                                      child: Text(s == VehicleStatus.OnTrip ? 'On Trip' : (s == VehicleStatus.InShop ? 'In Shop' : s.name)),
+                                    ))
+                                .toList(),
+                            onChanged: (VehicleStatus? s) {
+                              if (s != null) setState(() => selectedStatus = s);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ],
-              )),
-            ]);
-          }).toList(),
+              ),
+            ),
+          ),
         ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back<dynamic>(),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            label: 'Register',
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                final VehicleModel newVehicle = VehicleModel(
+                  name: nameCtrl.text.trim(),
+                  number: numberCtrl.text.trim(),
+                  registrationNumber: regCtrl.text.trim(),
+                  chasisNumber: chasisCtrl.text.trim(),
+                  type: selectedType,
+                  maxLoadCapacity: double.parse(capacityCtrl.text.trim()),
+                  capacityUnit: selectedUnit,
+                  odometer: double.parse(odometerCtrl.text.trim()),
+                  acquisitionCost: double.parse(costCtrl.text.replaceAll(',', '').trim()),
+                  status: selectedStatus,
+                );
+                controller.addVehicle(newVehicle);
+                Get.back<dynamic>();
+                _showActionSnackbar('Vehicle registered successfully!');
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditVehicleDialog(BuildContext context, int index) {
+    final ThemeData theme = Theme.of(context);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final VehicleModel current = controller.vehiclesList[index];
+
+    final TextEditingController nameCtrl = TextEditingController(text: current.name);
+    final TextEditingController numberCtrl = TextEditingController(text: current.number);
+    final TextEditingController regCtrl = TextEditingController(text: current.registrationNumber);
+    final TextEditingController chasisCtrl = TextEditingController(text: current.chasisNumber);
+    final TextEditingController capacityCtrl = TextEditingController(text: current.maxLoadCapacity.toStringAsFixed(0));
+    final TextEditingController odometerCtrl = TextEditingController(text: current.odometer.toStringAsFixed(0));
+    final TextEditingController costCtrl = TextEditingController(text: _formatIndianCost(current.acquisitionCost));
+
+    VehicleType selectedType = current.type;
+    CapacityUnit selectedUnit = current.capacityUnit;
+    VehicleStatus selectedStatus = current.status;
+
+    Get.dialog<dynamic>(
+      AlertDialog(
+        title: Row(
+          children: <Widget>[
+            Icon(Icons.edit, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            const Text('Edit Vehicle'),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Vehicle Name'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: numberCtrl,
+                    decoration: const InputDecoration(labelText: 'Vehicle Plate Number'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: regCtrl,
+                    decoration: const InputDecoration(labelText: 'Registration Number (Unique)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      final bool isDuplicate = controller.vehiclesList.asMap().entries.any((MapEntry<int, VehicleModel> entry) =>
+                          entry.key != index && entry.value.registrationNumber.trim().toLowerCase() == v.trim().toLowerCase());
+                      if (isDuplicate) return 'Registration number must be unique';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: chasisCtrl,
+                    decoration: const InputDecoration(labelText: 'Chasis Number'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: <Widget>[
+                          DropdownButtonFormField<VehicleType>(
+                            value: selectedType,
+                            decoration: const InputDecoration(labelText: 'Vehicle Type'),
+                            items: VehicleType.values
+                                .map((VehicleType t) => DropdownMenuItem<VehicleType>(
+                                      value: t,
+                                      child: Text(t == VehicleType.MiniTruck ? 'Mini Truck' : (t == VehicleType.MiniVan ? 'Mini Van' : t.name)),
+                                    ))
+                                .toList(),
+                            onChanged: (VehicleType? v) {
+                              if (v != null) setState(() => selectedType = v);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  controller: capacityCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: 'Max Load Capacity'),
+                                  validator: (String? v) {
+                                    if (v == null || v.trim().isEmpty) return 'Required';
+                                    if (double.tryParse(v) == null) return 'Must be a number';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<CapacityUnit>(
+                                  value: selectedUnit,
+                                  decoration: const InputDecoration(labelText: 'Unit'),
+                                  items: CapacityUnit.values
+                                      .map((CapacityUnit u) => DropdownMenuItem<CapacityUnit>(
+                                            value: u,
+                                            child: Text(u.name),
+                                          ))
+                                      .toList(),
+                                  onChanged: (CapacityUnit? u) {
+                                    if (u != null) setState(() => selectedUnit = u);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: odometerCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Odometer (Current km)',
+                              helperText: 'Total cumulative mileage covered (in km)',
+                            ),
+                            validator: (String? v) {
+                              if (v == null || v.trim().isEmpty) return 'Required';
+                              if (double.tryParse(v) == null) return 'Must be a number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: costCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly,
+                              IndianCurrencyInputFormatter(),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Acquisition Cost',
+                              prefixText: '₹ ',
+                            ),
+                            validator: (String? v) {
+                              if (v == null || v.trim().isEmpty) return 'Required';
+                              final String cleaned = v.replaceAll(',', '').trim();
+                              if (double.tryParse(cleaned) == null) return 'Must be a number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<VehicleStatus>(
+                            value: selectedStatus,
+                            decoration: const InputDecoration(labelText: 'Status'),
+                            items: VehicleStatus.values
+                                .map((VehicleStatus s) => DropdownMenuItem<VehicleStatus>(
+                                      value: s,
+                                      child: Text(s == VehicleStatus.OnTrip ? 'On Trip' : (s == VehicleStatus.InShop ? 'In Shop' : s.name)),
+                                    ))
+                                .toList(),
+                            onChanged: (VehicleStatus? s) {
+                              if (s != null) setState(() => selectedStatus = s);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back<dynamic>(),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            label: 'Save Changes',
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                final VehicleModel updated = VehicleModel(
+                  name: nameCtrl.text.trim(),
+                  number: numberCtrl.text.trim(),
+                  registrationNumber: regCtrl.text.trim(),
+                  chasisNumber: chasisCtrl.text.trim(),
+                  type: selectedType,
+                  maxLoadCapacity: double.parse(capacityCtrl.text.trim()),
+                  capacityUnit: selectedUnit,
+                  odometer: double.parse(odometerCtrl.text.trim()),
+                  acquisitionCost: double.parse(costCtrl.text.replaceAll(',', '').trim()),
+                  status: selectedStatus,
+                );
+                controller.vehiclesList[index] = updated;
+                Get.back<dynamic>();
+                _showActionSnackbar('Vehicle modifications saved!');
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -938,6 +1416,22 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
+  String _formatIndianCost(double cost) {
+    String cleaned = cost.toStringAsFixed(0);
+    if (cleaned.length <= 3) return cleaned;
+    String lastThree = cleaned.substring(cleaned.length - 3);
+    String rest = cleaned.substring(0, cleaned.length - 3);
+    List<String> groups = [];
+    int i = rest.length;
+    while (i > 0) {
+      int start = i - 2;
+      if (start < 0) start = 0;
+      groups.insert(0, rest.substring(start, i));
+      i -= 2;
+    }
+    return '${groups.join(',')},$lastThree';
+  }
+
   void _showActionSnackbar(String message) {
     Get.snackbar(
       'Operational Event',
@@ -947,5 +1441,46 @@ class DashboardView extends GetView<DashboardController> {
       colorText: Colors.white,
       margin: const EdgeInsets.all(16),
     );
+  }
+}
+
+class IndianCurrencyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+    
+    // Clean all non-digits
+    String cleaned = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleaned.isEmpty) {
+      return newValue.copyWith(
+        text: '',
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+    
+    String formatted = _format(cleaned);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+  
+  String _format(String cleaned) {
+    if (cleaned.length <= 3) return cleaned;
+    String lastThree = cleaned.substring(cleaned.length - 3);
+    String rest = cleaned.substring(0, cleaned.length - 3);
+    
+    List<String> groups = [];
+    int i = rest.length;
+    while (i > 0) {
+      int start = i - 2;
+      if (start < 0) start = 0;
+      groups.insert(0, rest.substring(start, i));
+      i -= 2;
+    }
+    return '${groups.join(',')},$lastThree';
   }
 }
