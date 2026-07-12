@@ -133,7 +133,7 @@ class DashboardView extends GetView<DashboardController> {
                   
                   AccessControl(
                     permission: 'trip:read',
-                    child: _buildSidebarItem(context, label: 'Dispatched Trips', icon: Icons.add_road),
+                    child: _buildSidebarItem(context, label: 'Trips', icon: Icons.add_road),
                   ),
                   
                   AccessControl(
@@ -312,7 +312,7 @@ class DashboardView extends GetView<DashboardController> {
         return _buildFleetSection(context);
       case 'Drivers':
         return _buildDriversSection(context);
-      case 'Dispatched Trips':
+      case 'Trips':
         return _buildTripsSection(context);
       case 'Maintenance Scheduled':
         return _buildMaintenanceSection(context);
@@ -438,13 +438,20 @@ class DashboardView extends GetView<DashboardController> {
 
   Widget _buildKPIsGrid(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 1200;
+    
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: ResponsiveLayout.isMobile(context) ? 1 : 4,
+      crossAxisCount: ResponsiveLayout.isMobile(context)
+          ? 2
+          : (isSmallScreen ? 2 : 4),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 2.5,
+      childAspectRatio: ResponsiveLayout.isMobile(context)
+          ? 2.2
+          : (isSmallScreen ? 2.5 : 2.8),
       children: <Widget>[
         StatisticTile(
           label: 'Active Vehicles',
@@ -1797,53 +1804,443 @@ class DashboardView extends GetView<DashboardController> {
 
   Widget _buildTripsSection(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final List<Map<String, String>> tripsList = <Map<String, String>>[
-      <String, String>{'sl': '1', 'id': 'TR-3092', 'vehicle': 'MH-12-PQ-8901', 'driver': 'John Driver', 'route': 'Pune Expressway', 'status': 'Dispatched'},
-      <String, String>{'sl': '2', 'id': 'TR-3093', 'vehicle': 'DL-01-AB-1234', 'driver': 'Vikram Singh', 'route': 'Noida Sector 62', 'status': 'Completed'},
-      <String, String>{'sl': '3', 'id': 'TR-3094', 'vehicle': 'TS-09-RT-4321', 'driver': 'Ramesh Kumar', 'route': 'Hyderabad Ring Road', 'status': 'Dispatched'},
+
+    return Obx(() => DashboardCard(
+          title: 'Current Dispatch Assignments',
+          trailing: AccessControl(
+            permission: 'trip:create',
+            child: AppButton(
+              label: 'Dispatch New Trip',
+              icon: Icons.add_road,
+              onPressed: () => _showDispatchTripDialog(context),
+            ),
+          ),
+          child: controller.tripsList.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No trips registered yet.'),
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: controller.tripsList.length,
+                  separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 12),
+                  itemBuilder: (BuildContext context, int index) {
+                    final TripModel item = controller.tripsList[index];
+                    return Obx(() {
+                      final bool isExpanded = controller.expandedTripId.value == item.id;
+                      
+                      Color statusColor;
+                      switch (item.status.value) {
+                        case TripStatus.Draft:
+                          statusColor = Colors.grey;
+                          break;
+                        case TripStatus.Dispatched:
+                          statusColor = Colors.blue;
+                          break;
+                        case TripStatus.Completed:
+                          statusColor = Colors.green;
+                          break;
+                        case TripStatus.Cancelled:
+                          statusColor = Colors.red;
+                          break;
+                      }
+
+                      return Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          children: <Widget>[
+                            ListTile(
+                              onTap: () {
+                                if (isExpanded) {
+                                  controller.expandedTripId.value = null;
+                                } else {
+                                  controller.expandedTripId.value = item.id;
+                                }
+                              },
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.local_shipping_outlined, color: statusColor),
+                              ),
+                              title: Row(
+                                children: <Widget>[
+                                  Text(
+                                    item.id,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  StatusBadge(
+                                    status: item.status.value == TripStatus.Dispatched ? 'Dispatched' : (item.status.value == TripStatus.Completed ? 'Completed' : (item.status.value == TripStatus.Cancelled ? 'Cancelled' : 'Draft')),
+                                    color: statusColor,
+                                  ),
+                                ],
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  'Route: ${item.source} → ${item.destination}  •  Vehicle: ${item.vehicle.name}  •  Driver: ${item.driver.fullName}',
+                                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                                onPressed: () {
+                                  if (isExpanded) {
+                                    controller.expandedTripId.value = null;
+                                  } else {
+                                    controller.expandedTripId.value = item.id;
+                                  }
+                                },
+                              ),
+                            ),
+                            if (isExpanded) ...[
+                              const Divider(height: 1),
+                              _buildTripLifecycleTimeline(item, context),
+                            ],
+                          ],
+                        ),
+                      );
+                    });
+                  },
+                ),
+        ));
+  }
+
+  Widget _buildTripLifecycleTimeline(TripModel trip, BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    final TripStatusHistory? draftHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Draft);
+    final TripStatusHistory? dispHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Dispatched);
+    final TripStatusHistory? compHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Completed);
+    final TripStatusHistory? cancHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.Cancelled);
+
+    final bool isCompleted = trip.status.value == TripStatus.Completed;
+    final bool isCancelled = trip.status.value == TripStatus.Cancelled;
+    
+    final List<_TimelineNode> nodes = <_TimelineNode>[
+      _TimelineNode(
+        title: isCancelled ? 'Cancelled' : 'Completed',
+        isActive: isCompleted || isCancelled,
+        history: isCancelled ? cancHist : compHist,
+        color: isCancelled ? Colors.red : Colors.green,
+      ),
+      _TimelineNode(
+        title: 'Dispatched',
+        isActive: dispHist != null,
+        color: Colors.blue,
+        history: dispHist,
+      ),
+      _TimelineNode(
+        title: 'Draft',
+        isActive: draftHist != null,
+        color: Colors.grey,
+        history: draftHist,
+      ),
     ];
 
-    return DashboardCard(
-      title: 'Current dispatch assignments',
-      trailing: AccessControl(
-        permission: 'trip:create',
-        child: AppButton(
-          label: 'Dispatch New Trip',
-          icon: Icons.add_road,
-          onPressed: () => _showActionSnackbar('Trip Dispatch Form Opened'),
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const <DataColumn>[
-            DataColumn(label: Text('S.L')),
-            DataColumn(label: Text('Trip ID')),
-            DataColumn(label: Text('Vehicle')),
-            DataColumn(label: Text('Driver Name')),
-            DataColumn(label: Text('Assigned Route')),
-            DataColumn(label: Text('Status')),
-            DataColumn(label: Text('Action')),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: <Widget>[
+              const Text(
+                'Lifecycle Tracking (Bottom to Top Timeline)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  if (trip.status.value == TripStatus.Draft)
+                    AppButton(
+                      label: 'Dispatch Trip',
+                      icon: Icons.local_shipping_outlined,
+                      onPressed: () {
+                        final int idx = controller.tripsList.indexOf(trip);
+                        controller.updateTripStatus(idx, TripStatus.Dispatched);
+                        _showActionSnackbar('Trip ${trip.id} dispatched!');
+                      },
+                    ),
+                  if (trip.status.value == TripStatus.Dispatched) ...[
+                    AppButton(
+                      label: 'Complete Trip',
+                      icon: Icons.check,
+                      onPressed: () {
+                        final int idx = controller.tripsList.indexOf(trip);
+                        controller.updateTripStatus(idx, TripStatus.Completed);
+                        _showActionSnackbar('Trip ${trip.id} marked as completed!');
+                      },
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        final int idx = controller.tripsList.indexOf(trip);
+                        controller.updateTripStatus(idx, TripStatus.Cancelled);
+                        _showActionSnackbar('Trip ${trip.id} cancelled.');
+                      },
+                      icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                      label: const Text('Cancel', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Column(
+            children: List<Widget>.generate(nodes.length, (int index) {
+              final _TimelineNode node = nodes[index];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Column(
+                    children: <Widget>[
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: node.isActive ? node.color : theme.colorScheme.outline.withOpacity(0.3),
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                      if (index < nodes.length - 1)
+                        Container(
+                          width: 2,
+                          height: 40,
+                          color: nodes[index + 1].isActive ? nodes[index].color : theme.colorScheme.outline.withOpacity(0.2),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          node.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: node.isActive ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withOpacity(0.4),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        if (node.isActive && node.history != null)
+                          Text(
+                            'Updated by: ${node.history!.changedBy}  •  ${node.history!.timestamp.year}-${node.history!.timestamp.month.toString().padLeft(2, '0')}-${node.history!.timestamp.day.toString().padLeft(2, '0')} ${node.history!.timestamp.hour.toString().padLeft(2, '0')}:${node.history!.timestamp.minute.toString().padLeft(2, '0')}',
+                            style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                          )
+                        else
+                          Text(
+                            'Pending stage',
+                            style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                          ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDispatchTripDialog(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    final List<String> cities = <String>[
+      'Delhi',
+      'Mumbai',
+      'Pune',
+      'Bangalore',
+      'Chennai',
+      'Hyderabad'
+    ];
+
+    String selectedSource = cities[0];
+    String selectedDestination = cities[1];
+
+    final List<VehicleModel> availableVehicles = controller.vehiclesList
+        .where((VehicleModel v) => v.status == VehicleStatus.Available)
+        .toList();
+
+    final List<DriverModel> availableDrivers = controller.driversList
+        .where((DriverModel d) => d.status == DriverStatus.Available)
+        .toList();
+
+    VehicleModel? selectedVehicle = availableVehicles.isNotEmpty ? availableVehicles[0] : null;
+    DriverModel? selectedDriver = availableDrivers.isNotEmpty ? availableDrivers[0] : null;
+
+    final TextEditingController weightCtrl = TextEditingController();
+    final TextEditingController distanceCtrl = TextEditingController();
+
+    Get.dialog<dynamic>(
+      AlertDialog(
+        title: Row(
+          children: <Widget>[
+            Icon(Icons.add_road, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            const Text('Dispatch New Trip'),
           ],
-          rows: tripsList.map((Map<String, String> item) {
-            final Color statusColor = item['status'] == 'Dispatched' ? Colors.blue : theme.colorScheme.secondary;
-            return DataRow(cells: <DataCell>[
-              DataCell(Text(item['sl']!)),
-              DataCell(Text(item['id']!, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text(item['vehicle']!)),
-              DataCell(Text(item['driver']!)),
-              DataCell(Text(item['route']!)),
-              DataCell(StatusBadge(status: item['status']!, color: statusColor)),
-              DataCell(Row(
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  IconButton(icon: const Icon(Icons.visibility_outlined, size: 18), onPressed: () {}),
-                  IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.red), onPressed: () {}),
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: <Widget>[
+                          DropdownButtonFormField<String>(
+                            value: selectedSource,
+                            decoration: const InputDecoration(labelText: 'Source Location'),
+                            items: cities
+                                .map((String c) => DropdownMenuItem<String>(value: c, child: Text(c)))
+                                .toList(),
+                            onChanged: (String? val) {
+                              if (val != null) setState(() => selectedSource = val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: selectedDestination,
+                            decoration: const InputDecoration(labelText: 'Destination Location'),
+                            items: cities
+                                .map((String c) => DropdownMenuItem<String>(value: c, child: Text(c)))
+                                .toList(),
+                            onChanged: (String? val) {
+                              if (val != null) setState(() => selectedDestination = val);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<VehicleModel>(
+                            value: selectedVehicle,
+                            decoration: const InputDecoration(labelText: 'Select Available Vehicle'),
+                            items: availableVehicles
+                                .map((VehicleModel v) => DropdownMenuItem<VehicleModel>(
+                                      value: v,
+                                      child: Text('${v.name} (${v.number})'),
+                                    ))
+                                .toList(),
+                            onChanged: (VehicleModel? val) {
+                              if (val != null) setState(() => selectedVehicle = val);
+                            },
+                            validator: (VehicleModel? val) => val == null ? 'No vehicles available' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<DriverModel>(
+                            value: selectedDriver,
+                            decoration: const InputDecoration(labelText: 'Select Available Driver'),
+                            items: availableDrivers
+                                .map((DriverModel d) => DropdownMenuItem<DriverModel>(
+                                      value: d,
+                                      child: Text(d.fullName),
+                                    ))
+                                .toList(),
+                            onChanged: (DriverModel? val) {
+                              if (val != null) setState(() => selectedDriver = val);
+                            },
+                            validator: (DriverModel? val) => val == null ? 'No drivers available' : null,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: weightCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Cargo Weight (Kg)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (double.tryParse(v) == null) return 'Must be a number';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: distanceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Planned Distance (km)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (double.tryParse(v) == null) return 'Must be a number';
+                      return null;
+                    },
+                  ),
                 ],
-              )),
-            ]);
-          }).toList(),
+              ),
+            ),
+          ),
         ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back<dynamic>(),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            label: 'Create Trip',
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                if (selectedVehicle == null || selectedDriver == null) {
+                  _showActionSnackbar('Please select an available vehicle and driver.');
+                  return;
+                }
+                final String newId = 'TR-${3090 + controller.tripsList.length + 5}';
+                final TripModel newTrip = TripModel(
+                  id: newId,
+                  source: selectedSource,
+                  destination: selectedDestination,
+                  vehicle: selectedVehicle!,
+                  driver: selectedDriver!,
+                  cargoWeight: double.parse(weightCtrl.text.trim()),
+                  plannedDistance: double.parse(distanceCtrl.text.trim()),
+                  initialStatus: TripStatus.Draft,
+                  historyList: <TripStatusHistory>[
+                    TripStatusHistory(
+                      status: TripStatus.Draft,
+                      timestamp: DateTime.now(),
+                      changedBy: 'Fleet Manager',
+                    ),
+                  ],
+                );
+                controller.addTrip(newTrip);
+                Get.back<dynamic>();
+                _showActionSnackbar('Trip $newId created in Draft state!');
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -2166,4 +2563,18 @@ class IndianCurrencyInputFormatter extends TextInputFormatter {
     }
     return '${groups.join(',')},$lastThree';
   }
+}
+
+class _TimelineNode {
+  final String title;
+  final bool isActive;
+  final TripStatusHistory? history;
+  final Color color;
+
+  _TimelineNode({
+    required this.title,
+    required this.isActive,
+    this.history,
+    required this.color,
+  });
 }

@@ -31,6 +31,12 @@ class DashboardController extends GetxController {
   // Reactive Drivers List
   final RxList<DriverModel> driversList = <DriverModel>[].obs;
 
+  // Reactive Trips List
+  final RxList<TripModel> tripsList = <TripModel>[].obs;
+
+  // Track expanded trip ID
+  final RxnString expandedTripId = RxnString();
+
   @override
   void onInit() {
     super.onInit();
@@ -179,6 +185,54 @@ class DashboardController extends GetxController {
       ),
     ]);
 
+    // Prepopulate trips list
+    tripsList.assignAll(<TripModel>[
+      TripModel(
+        id: 'TR-3092',
+        source: 'Pune',
+        destination: 'Mumbai',
+        vehicle: vehiclesList[0],
+        driver: driversList[0],
+        cargoWeight: 8500.0,
+        plannedDistance: 150.0,
+        initialStatus: TripStatus.Dispatched,
+        historyList: <TripStatusHistory>[
+          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(hours: 2)), changedBy: 'Fleet Manager'),
+        ],
+      ),
+      TripModel(
+        id: 'TR-3093',
+        source: 'Delhi',
+        destination: 'Noida',
+        vehicle: vehiclesList[1],
+        driver: driversList[1],
+        cargoWeight: 1200.0,
+        plannedDistance: 45.0,
+        initialStatus: TripStatus.Completed,
+        historyList: <TripStatusHistory>[
+          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 4)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.Completed, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)), changedBy: 'Fleet Manager'),
+        ],
+      ),
+      TripModel(
+        id: 'TR-3094',
+        source: 'Hyderabad',
+        destination: 'Secunderabad',
+        vehicle: vehiclesList[2],
+        driver: driversList[2],
+        cargoWeight: 400.0,
+        plannedDistance: 25.0,
+        initialStatus: TripStatus.Cancelled,
+        historyList: <TripStatusHistory>[
+          TripStatusHistory(status: TripStatus.Draft, timestamp: DateTime.now().subtract(const Duration(hours: 6)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.Dispatched, timestamp: DateTime.now().subtract(const Duration(hours: 5)), changedBy: 'Fleet Manager'),
+          TripStatusHistory(status: TripStatus.Cancelled, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
+        ],
+      ),
+    ]);
+
     isLoading.value = false;
   }
 
@@ -198,6 +252,27 @@ class DashboardController extends GetxController {
     }
     driversList.add(driver);
     return true;
+  }
+
+  bool addTrip(TripModel trip) {
+    if (tripsList.any((TripModel t) => t.id.toLowerCase() == trip.id.toLowerCase())) {
+      return false;
+    }
+    tripsList.add(trip);
+    return true;
+  }
+
+  void updateTripStatus(int index, TripStatus newStatus) {
+    if (index >= 0 && index < tripsList.length) {
+      final TripModel trip = tripsList[index];
+      trip.status.value = newStatus;
+      trip.history.add(TripStatusHistory(
+        status: newStatus,
+        timestamp: DateTime.now(),
+        changedBy: 'Fleet Manager',
+      ));
+      tripsList[index] = trip;
+    }
   }
 
   void logout() {
@@ -261,4 +336,44 @@ class DriverModel {
     required this.safetyScore,
     required this.status,
   });
+}
+
+// Trip Enums and Models
+enum TripStatus { Draft, Dispatched, Completed, Cancelled }
+
+class TripStatusHistory {
+  final TripStatus status;
+  final DateTime timestamp;
+  final String changedBy;
+
+  TripStatusHistory({
+    required this.status,
+    required this.timestamp,
+    required this.changedBy,
+  });
+}
+
+class TripModel {
+  final String id;
+  final String source;
+  final String destination;
+  final VehicleModel vehicle;
+  final DriverModel driver;
+  final double cargoWeight;
+  final double plannedDistance;
+  final RxList<TripStatusHistory> history;
+  final Rx<TripStatus> status;
+
+  TripModel({
+    required this.id,
+    required this.source,
+    required this.destination,
+    required this.vehicle,
+    required this.driver,
+    required this.cargoWeight,
+    required this.plannedDistance,
+    required List<TripStatusHistory> historyList,
+    required TripStatus initialStatus,
+  })  : history = historyList.obs,
+        status = initialStatus.obs;
 }
