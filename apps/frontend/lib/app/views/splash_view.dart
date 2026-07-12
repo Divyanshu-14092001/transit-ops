@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import '../routes/app_routes.dart';
 import '../../core/services/auth_service.dart';
 
@@ -22,9 +21,9 @@ class _SplashViewState extends State<SplashView> {
     await Future<void>.delayed(const Duration(milliseconds: 1500));
 
     if (AuthService.to.isLoggedIn.value) {
-      Get.offAllNamed<dynamic>(AppRoutes.dashboard);
+      AppNavigator.replaceAllNamed<dynamic>(AppRoutes.dashboard);
     } else {
-      Get.offAllNamed<dynamic>(AppRoutes.login);
+      AppNavigator.replaceAllNamed<dynamic>(AppRoutes.login);
     }
   }
 

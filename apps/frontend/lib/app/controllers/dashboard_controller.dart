@@ -277,7 +277,7 @@ class DashboardController extends GetxController {
 
   void logout() {
     AuthService.to.logout();
-    Get.offAllNamed<dynamic>(AppRoutes.login);
+    AppNavigator.replaceAllNamed<dynamic>(AppRoutes.login);
   }
 }
 

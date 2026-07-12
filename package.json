@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "bootstrap": "npm install",
+    "build": "npm run shared:build && npm run backend:build",
+    "start": "npm run start -w apps/backend",
     "backend:dev": "npm run dev -w apps/backend",
     "backend:build": "npm run build -w apps/backend",
     "backend:lint": "npm run lint -w apps/backend",

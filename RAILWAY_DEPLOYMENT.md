@@ -19,12 +19,20 @@ The application is deployed as three separate services in a single Railway proje
 3. Under the **Variables** tab of the PostgreSQL service, locate the generated `DATABASE_URL` string. You will link this to the backend.
 
 ### 2. Deploy Node.js/Express Backend Service
-1. In the same Railway project, click **New** -> **GitHub Repository** and select the `transit-ops` repo.
-2. Under the service settings, configure:
-   * **Service Name**: `backend`
-   * **Root Directory**: `/` (Leave as root to allow the Docker context to build the `@transitops/shared` package dependency).
-   * **Dockerfile Path**: `apps/backend/Dockerfile`
-   * **Pre-deploy Command**: `npx prisma migrate deploy`
+You can deploy the backend using either **Docker** or Railway's automatic **Nixpacks / Railpack** builder.
+
+#### Option A: Automatic Builder (Railpack / Nixpacks) - Recommended
+* **Service Name**: `backend`
+* **Root Directory**: `/` (Leave as root so Railway can build the local workspace package).
+* **Start Command / Build Command**: Inferred automatically. The root `package.json` has been updated with `"build"` and `"start"` scripts that build and run the monorepo workspace dependencies.
+* **Pre-deploy Command**: `npx prisma migrate deploy`
+
+#### Option B: Docker-based Builder
+* **Service Name**: `backend`
+* **Root Directory**: `/`
+* **Dockerfile Path**: `apps/backend/Dockerfile`
+* **Pre-deploy Command**: `npx prisma migrate deploy`
+
 3. Under the **Variables** tab, add:
    * `NODE_ENV` = `production`
    * `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (Dynamic reference to the PostgreSQL service variable)
