@@ -211,7 +211,7 @@ class TripsView extends GetView<DashboardController> {
     String selectedDestination = cities[1];
 
     final List<VehicleModel> availableVehicles = controller.vehiclesList.where((VehicleModel v) => v.status == VehicleStatus.Available).toList();
-    final List<DriverModel> availableDrivers = controller.driversList.where((DriverModel d) => d.status == DriverStatus.Available).toList();
+    final List<DriverModel> availableDrivers = controller.driversList.where((DriverModel d) => d.status == DriverStatus.AVAILABLE).toList();
 
     VehicleModel? selectedVehicle = availableVehicles.isNotEmpty ? availableVehicles[0] : null;
     DriverModel? selectedDriver = availableDrivers.isNotEmpty ? availableDrivers[0] : null;
