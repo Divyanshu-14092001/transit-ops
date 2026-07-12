@@ -47,15 +47,35 @@ class DashboardController extends GetxController {
   // Reactive Maintenance List
   final RxList<MaintenanceModel> maintenanceList = <MaintenanceModel>[].obs;
 
+  // Reactive Utilization Trends List
+  final RxList<Map<String, dynamic>> utilizationTrends = <Map<String, dynamic>>[].obs;
+
   @override
   void onInit() {
     super.onInit();
+    
+    // Initialize default trends
+    utilizationTrends.assignAll(<Map<String, dynamic>>[
+      <String, dynamic>{'day': 'Mon', 'value': 82.0},
+      <String, dynamic>{'day': 'Tue', 'value': 80.0},
+      <String, dynamic>{'day': 'Wed', 'value': 85.0},
+      <String, dynamic>{'day': 'Thu', 'value': 88.0},
+      <String, dynamic>{'day': 'Fri', 'value': 83.0},
+      <String, dynamic>{'day': 'Sat', 'value': 75.0},
+      <String, dynamic>{'day': 'Sun', 'value': 70.0},
+    ]);
+
     fetchDashboardData();
     
     // Auto-fetch drivers when query or status filter changes
     debounce<String>(driverSearchQuery, (_) => fetchDrivers(), time: const Duration(milliseconds: 300));
     ever<DriverStatus?>(selectedDriverStatusFilter, (_) => fetchDrivers());
     ever<VehicleStatus?>(selectedVehicleStatusFilter, (_) => fetchVehicles());
+    
+    // Refresh dashboard stats when home screen filters change
+    ever<String>(selectedVehicleType, (_) => fetchDashboardData());
+    ever<String>(selectedStatus, (_) => fetchDashboardData());
+    ever<String>(selectedRegion, (_) => fetchDashboardData());
   }
 
   void selectModule(String module) {
@@ -66,47 +86,58 @@ class DashboardController extends GetxController {
     if (type != null) selectedVehicleType.value = type;
     if (status != null) selectedStatus.value = status;
     if (region != null) selectedRegion.value = region;
-
-    // Simulate stats updating dynamically when filters change
-    int multiplier = 1;
-    if (selectedVehicleType.value == 'Cargo Trucks') multiplier = 2;
-    if (selectedVehicleType.value == 'Delivery Vans') multiplier = 3;
-    if (selectedVehicleType.value == 'Tippers') multiplier = 4;
-
-    activeVehicles.value = (35 + multiplier * 2) % 60;
-    availableVehicles.value = (10 + multiplier * 3) % 25;
-    downVehicles.value = (2 + multiplier) % 8;
-    activeTrips.value = (20 + multiplier * 2) % 45;
-    pendingTrips.value = (8 + multiplier) % 20;
-    driversOnDuty.value = (30 + multiplier * 3) % 50;
-    fleetUtilization.value = 75.0 + (multiplier * 2.5);
   }
 
   Future<void> fetchDashboardData() async {
-    isLoading.value = true;
-    
-    // Simulate API fetch delay
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      isLoading.value = true;
 
-    activeVehicles.value = 42;
-    availableVehicles.value = 15;
-    downVehicles.value = 4;
-    activeTrips.value = 28;
-    pendingTrips.value = 12;
-    driversOnDuty.value = 35;
-    fleetUtilization.value = 82.5;
-    operatingCost.value = 14250.75;
-    
-    recentActivities.assignAll(<String>[
-      'Trip #3092 dispatched successfully to Driver John.',
-      'Vehicle #104 brake inspection logged by safety team.',
-      'Fuel transaction ₹15,000 logged for Truck #45.',
-      'Maintenance order #819 closed for Vehicle #12.',
-    ]);
+      final Map<String, dynamic> queryParameters = <String, dynamic>{
+        'vehicleType': selectedVehicleType.value,
+        'status': selectedStatus.value,
+        'region': selectedRegion.value,
+      };
 
-    // Fetch vehicles from backend, or fall back to mock profiles
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/dashboard',
+        queryParameters: queryParameters,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          activeVehicles.value = int.tryParse(data['activeVehicles']?.toString() ?? '') ?? 0;
+          availableVehicles.value = int.tryParse(data['availableVehicles']?.toString() ?? '') ?? 0;
+          downVehicles.value = int.tryParse(data['downVehicles']?.toString() ?? '') ?? 0;
+          activeTrips.value = int.tryParse(data['activeTrips']?.toString() ?? '') ?? 0;
+          pendingTrips.value = int.tryParse(data['pendingTrips']?.toString() ?? '') ?? 0;
+          driversOnDuty.value = int.tryParse(data['driversOnDuty']?.toString() ?? '') ?? 0;
+          fleetUtilization.value = double.tryParse(data['fleetUtilization']?.toString() ?? '') ?? 0.0;
+
+          if (data['recentActivities'] != null && data['recentActivities'] is List) {
+            recentActivities.assignAll(
+              (data['recentActivities'] as List).map((dynamic val) => val.toString()).toList(),
+            );
+          }
+
+          if (data['utilizationTrends'] != null && data['utilizationTrends'] is List) {
+            final List<dynamic> trends = data['utilizationTrends'] as List;
+            utilizationTrends.assignAll(
+              trends.map((dynamic item) => Map<String, dynamic>.from(item as Map)).toList(),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Offline fallback when API call fails
+    } finally {
+      isLoading.value = false;
+    }
+
+    // Refresh related lists
     await fetchVehicles();
     await fetchMaintenance();
+    
     if (vehiclesList.isEmpty) {
       vehiclesList.assignAll(<VehicleModel>[
         VehicleModel(

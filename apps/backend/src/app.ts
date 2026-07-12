@@ -9,6 +9,7 @@ import { vehiclesRouter } from "./features/vehicles/vehicles.routes";
 import { tripsRouter } from "./features/trips/trips.routes";
 import { locationsRouter } from "./features/locations/locations.routes";
 import { maintenanceRouter } from "./features/maintenance/maintenance.routes";
+import { dashboardRouter } from "./features/dashboard/dashboard.routes";
 
 const app = express();
 
@@ -76,6 +77,7 @@ app.use("/api/vehicles", vehiclesRouter);
 app.use("/api/trips", tripsRouter);
 app.use("/api/locations", locationsRouter);
 app.use("/api/maintenance", maintenanceRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {
