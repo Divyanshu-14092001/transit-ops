@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -117,6 +118,128 @@ async function main() {
       });
     }
   }
+
+  // 3.b Seed Demo Organization and Users
+  console.log("Seeding demo organization and users...");
+  const org = await prisma.organization.upsert({
+    where: { code: "DEMO_LOGISTICS" },
+    update: { name: "Demo Logistics" },
+    create: {
+      name: "Demo Logistics",
+      code: "DEMO_LOGISTICS",
+      email: "info@demologistics.com",
+      status: "ACTIVE",
+    },
+  });
+
+  const adminPasswordHash = bcrypt.hashSync("SecurePassword123", 10);
+  const adminUser = await prisma.user.upsert({
+    where: { email: "admin@transitops.com" },
+    update: { passwordHash: adminPasswordHash },
+    create: {
+      email: "admin@transitops.com",
+      fullName: "System Admin",
+      passwordHash: adminPasswordHash,
+      contactNumber: "+919876543210",
+      status: "ACTIVE",
+    },
+  });
+
+  // Assign Admin User Organization Membership
+  await prisma.userOrganization.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000001" },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000001",
+      userId: adminUser.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+  });
+
+  // Assign Admin User Role
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_organizationId: {
+        userId: adminUser.id,
+        roleId: dbRoles["ADMIN"].id,
+        organizationId: org.id,
+      },
+    },
+    update: { isActive: true },
+    create: {
+      userId: adminUser.id,
+      roleId: dbRoles["ADMIN"].id,
+      organizationId: org.id,
+      isActive: true,
+    },
+  });
+
+  const driverPasswordHash = bcrypt.hashSync("SecurePassword123", 10);
+  const driverUser = await prisma.user.upsert({
+    where: { email: "driver@transitops.com" },
+    update: { passwordHash: driverPasswordHash },
+    create: {
+      email: "driver@transitops.com",
+      fullName: "John Doe",
+      passwordHash: driverPasswordHash,
+      contactNumber: "+919876543211",
+      status: "ACTIVE",
+    },
+  });
+
+  // Assign Driver User Organization Membership
+  await prisma.userOrganization.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000002" },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000002",
+      userId: driverUser.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+  });
+
+  // Assign Driver User Role
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_organizationId: {
+        userId: driverUser.id,
+        roleId: dbRoles["DRIVER"].id,
+        organizationId: org.id,
+      },
+    },
+    update: { isActive: true },
+    create: {
+      userId: driverUser.id,
+      roleId: dbRoles["DRIVER"].id,
+      organizationId: org.id,
+      isActive: true,
+    },
+  });
+
+  // Create Driver Profile
+  await prisma.driver.upsert({
+    where: { userId: driverUser.id },
+    update: {
+      employeeCode: "DRV001",
+      licenseNumber: "DL-9920261234",
+      licenseCategory: "COMMERCIAL",
+      safetyScore: 95.0,
+      status: "AVAILABLE",
+    },
+    create: {
+      userId: driverUser.id,
+      organizationId: org.id,
+      employeeCode: "DRV001",
+      licenseNumber: "DL-9920261234",
+      licenseCategory: "COMMERCIAL",
+      licenseIssuedAt: new Date(Date.now() - 365 * 5 * 24 * 60 * 60 * 1000), // 5 years ago
+      licenseExpiryDate: new Date(Date.now() + 365 * 5 * 24 * 60 * 60 * 1000), // 5 years in future
+      safetyScore: 95.0,
+      status: "AVAILABLE",
+    },
+  });
 
   // 4. Seed Locations from locations.json
   console.log("Seeding Indian states and cities...");

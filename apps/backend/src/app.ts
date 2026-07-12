@@ -3,6 +3,8 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { HTTP_STATUS } from "@transitops/shared";
+import { authRouter } from "./features/auth/auth.routes";
+import { driversRouter } from "./features/drivers/drivers.routes";
 
 const app = express();
 
@@ -31,6 +33,10 @@ const limiter = rateLimit({
   },
 });
 app.use("/api/", limiter);
+
+// API Routes
+app.use("/api/auth", authRouter);
+app.use("/api/drivers", driversRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {
