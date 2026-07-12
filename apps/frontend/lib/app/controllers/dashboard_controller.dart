@@ -28,6 +28,9 @@ class DashboardController extends GetxController {
   // Reactive Vehicles List
   final RxList<VehicleModel> vehiclesList = <VehicleModel>[].obs;
 
+  // Reactive Drivers List
+  final RxList<DriverModel> driversList = <DriverModel>[].obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -132,6 +135,50 @@ class DashboardController extends GetxController {
       ),
     ]);
 
+    // Prepopulate drivers list
+    driversList.assignAll(<DriverModel>[
+      DriverModel(
+        fullName: 'Vikram Malhotra',
+        email: 'vikram@transitops.com',
+        contactNumber: '9876543210',
+        licenseNumber: 'DL-991823A',
+        licenseCategory: LicenseCategory.HMV,
+        licenseExpiryDate: DateTime(2030, 5, 12),
+        safetyScore: 95.0,
+        status: DriverStatus.Available,
+      ),
+      DriverModel(
+        fullName: 'John Doe',
+        email: 'john.doe@transitops.com',
+        contactNumber: '9812345670',
+        licenseNumber: 'DL-182309B',
+        licenseCategory: LicenseCategory.LMV,
+        licenseExpiryDate: DateTime(2028, 11, 22),
+        safetyScore: 88.0,
+        status: DriverStatus.OnTrip,
+      ),
+      DriverModel(
+        fullName: 'Rajesh Kumar',
+        email: 'rajesh@transitops.com',
+        contactNumber: '9718293810',
+        licenseNumber: 'DL-481923C',
+        licenseCategory: LicenseCategory.HMV,
+        licenseExpiryDate: DateTime(2027, 2, 15),
+        safetyScore: 91.0,
+        status: DriverStatus.OffDuty,
+      ),
+      DriverModel(
+        fullName: 'Sunita Sharma',
+        email: 'sunita@transitops.com',
+        contactNumber: '9923849102',
+        licenseNumber: 'DL-382910D',
+        licenseCategory: LicenseCategory.LMV,
+        licenseExpiryDate: DateTime(2025, 9, 8),
+        safetyScore: 78.5,
+        status: DriverStatus.Suspended,
+      ),
+    ]);
+
     isLoading.value = false;
   }
 
@@ -141,6 +188,15 @@ class DashboardController extends GetxController {
       return false;
     }
     vehiclesList.add(vehicle);
+    return true;
+  }
+
+  bool addDriver(DriverModel driver) {
+    if (driversList.any((DriverModel d) =>
+        d.licenseNumber.trim().toLowerCase() == driver.licenseNumber.trim().toLowerCase())) {
+      return false;
+    }
+    driversList.add(driver);
     return true;
   }
 
@@ -177,6 +233,32 @@ class VehicleModel {
     required this.capacityUnit,
     required this.odometer,
     required this.acquisitionCost,
+    required this.status,
+  });
+}
+
+// Driver Enums and Models
+enum DriverStatus { Available, OnTrip, OffDuty, Suspended }
+enum LicenseCategory { LMV, HMV }
+
+class DriverModel {
+  final String fullName;
+  final String email;
+  final String contactNumber;
+  final String licenseNumber;
+  final LicenseCategory licenseCategory;
+  final DateTime licenseExpiryDate;
+  final double safetyScore;
+  final DriverStatus status;
+
+  DriverModel({
+    required this.fullName,
+    required this.email,
+    required this.contactNumber,
+    required this.licenseNumber,
+    required this.licenseCategory,
+    required this.licenseExpiryDate,
+    required this.safetyScore,
     required this.status,
   });
 }

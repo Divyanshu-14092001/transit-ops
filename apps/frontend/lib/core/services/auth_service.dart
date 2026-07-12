@@ -73,6 +73,7 @@ class AuthService extends GetxService {
         const <String>[
           'dashboard:view',
           'vehicle:read', 'vehicle:create', 'vehicle:update', 'vehicle:delete',
+          'driver:read', 'driver:create', 'driver:update', 'driver:delete',
           'trip:read', 'trip:create', 'trip:dispatch', 'trip:complete', 'trip:cancel',
           'maintenance:read', 'maintenance:create', 'maintenance:update', 'maintenance:close',
           'fuel:create', 'expense:create', 'report:view', 'report:export',

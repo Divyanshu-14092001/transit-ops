@@ -127,6 +127,11 @@ class DashboardView extends GetView<DashboardController> {
                   ),
                   
                   AccessControl(
+                    permission: 'driver:read',
+                    child: _buildSidebarItem(context, label: 'Drivers', icon: Icons.people_outline),
+                  ),
+                  
+                  AccessControl(
                     permission: 'trip:read',
                     child: _buildSidebarItem(context, label: 'Dispatched Trips', icon: Icons.add_road),
                   ),
@@ -305,6 +310,8 @@ class DashboardView extends GetView<DashboardController> {
     switch (selected) {
       case 'Vehicles':
         return _buildFleetSection(context);
+      case 'Drivers':
+        return _buildDriversSection(context);
       case 'Dispatched Trips':
         return _buildTripsSection(context);
       case 'Maintenance Scheduled':
@@ -707,17 +714,602 @@ class DashboardView extends GetView<DashboardController> {
         ));
   }
 
-  void _showRegisterVehicleDialog(BuildContext context) {
+  Widget _buildDriversSection(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+
+    return Obx(() => DashboardCard(
+          title: 'Registered Driver Directory',
+          trailing: AccessControl(
+            permission: 'driver:create',
+            child: AppButton(
+              label: 'Register Driver',
+              icon: Icons.add,
+              onPressed: () => _showRegisterDriverDialog(context),
+            ),
+          ),
+          child: controller.driversList.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No drivers registered yet.'),
+                  ),
+                )
+              : SizedBox(
+                  width: double.infinity,
+                  child: DataTable(
+                    dataRowMinHeight: 52,
+                    dataRowMaxHeight: 64,
+                    columns: const <DataColumn>[
+                      DataColumn(label: Text('S.L')),
+                      DataColumn(label: Text('Driver Details')),
+                      DataColumn(label: Text('License Details')),
+                      DataColumn(label: Text('Score & Status')),
+                      DataColumn(label: Text('Action')),
+                    ],
+                    rows: List<DataRow>.generate(controller.driversList.length, (int index) {
+                      final DriverModel item = controller.driversList[index];
+                      Color statusColor;
+                      switch (item.status) {
+                        case DriverStatus.Available:
+                          statusColor = Colors.green;
+                          break;
+                        case DriverStatus.OnTrip:
+                          statusColor = Colors.blue;
+                          break;
+                        case DriverStatus.OffDuty:
+                          statusColor = Colors.orange;
+                          break;
+                        case DriverStatus.Suspended:
+                          statusColor = Colors.red;
+                          break;
+                      }
+
+                      return DataRow(cells: <DataCell>[
+                        DataCell(Text('${index + 1}')),
+                        // Driver Details
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(item.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('${item.email} • ${item.contactNumber}', style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        // License Details
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text('No: ${item.licenseNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 2),
+                            Text('Cat: ${item.licenseCategory.name} • Exp: ${item.licenseExpiryDate.year}-${item.licenseExpiryDate.month.toString().padLeft(2, '0')}-${item.licenseExpiryDate.day.toString().padLeft(2, '0')}', style: TextStyle(fontSize: 10, color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                          ],
+                        )),
+                        // Score & Status
+                        DataCell(Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text('Safety Score: ${item.safetyScore.toStringAsFixed(1)}', style: const TextStyle(fontSize: 11)),
+                            const SizedBox(height: 2),
+                            StatusBadge(
+                              status: item.status == DriverStatus.OnTrip ? 'On Trip' : (item.status == DriverStatus.OffDuty ? 'Off Duty' : item.status.name),
+                              color: statusColor,
+                            ),
+                          ],
+                        )),
+                        // Actions
+                        DataCell(Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18),
+                              onPressed: () => _showEditDriverDialog(context, index),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              onPressed: () {
+                                controller.driversList.removeAt(index);
+                                _showActionSnackbar('Driver profile deleted.');
+                              },
+                            ),
+                          ],
+                        )),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
+        ));
+  }
+
+  void _showRegisterDriverDialog(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final GlobalKey<FormState> checkFormKey = GlobalKey<FormState>();
+    final GlobalKey<FormState> regFormKey = GlobalKey<FormState>();
+
+    final TextEditingController licenseCheckCtrl = TextEditingController();
+    final TextEditingController nameCtrl = TextEditingController();
+    final TextEditingController emailCtrl = TextEditingController();
+    final TextEditingController contactCtrl = TextEditingController();
+    final TextEditingController expiryCtrl = TextEditingController();
+    final TextEditingController scoreCtrl = TextEditingController(text: '90.0');
+
+    final RxBool isChecking = false.obs;
+    final RxBool hasChecked = false.obs;
+
+    LicenseCategory selectedCategory = LicenseCategory.LMV;
+    DriverStatus selectedStatus = DriverStatus.Available;
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 365));
+
+    Get.dialog<dynamic>(
+      AlertDialog(
+        title: Row(
+          children: <Widget>[
+            Icon(Icons.person_add_alt_1_outlined, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            const Text('Register Driver Profile'),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Obx(() {
+              if (isChecking.value) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Checking license database...',
+                        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (!hasChecked.value) {
+                // Step 1: Input license number to verify database
+                return Form(
+                  key: checkFormKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Step 1: Check License Registration',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter the driver\'s license number to verify if their profile exists in our database.',
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: licenseCheckCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Driver License Number',
+                          hintText: 'e.g. DL-1420230012345',
+                        ),
+                        validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              // Step 2: Not found (always not found for mock mode) -> Show full profile form split in 2 sections
+              return Form(
+                key: regFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    // Info banner
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          const Icon(Icons.info_outline, color: Colors.amber),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'License "${licenseCheckCtrl.text.trim()}" not found in database. Proceeding with new user registration.',
+                              style: const TextStyle(fontSize: 11, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Section 1: User Account Registration Details
+                    Row(
+                      children: <Widget>[
+                        Icon(Icons.account_box_outlined, size: 18, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '1. User Account Registration',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Full Name'),
+                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: emailCtrl,
+                      decoration: const InputDecoration(labelText: 'Email Address'),
+                      validator: (String? v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        if (!GetUtils.isEmail(v.trim())) return 'Invalid email format';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: contactCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(labelText: 'Contact Number'),
+                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Section 2: Driver Professional Profile
+                    Row(
+                      children: <Widget>[
+                        Icon(Icons.badge_outlined, size: 18, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 8),
+                        const Text(
+                          '2. Driver Profile Details',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    TextFormField(
+                      initialValue: licenseCheckCtrl.text.trim(),
+                      enabled: false,
+                      decoration: const InputDecoration(labelText: 'Verified License Number'),
+                    ),
+                    const SizedBox(height: 12),
+                    StatefulBuilder(
+                      builder: (BuildContext context, StateSetter setState) {
+                        return Column(
+                          children: <Widget>[
+                            DropdownButtonFormField<LicenseCategory>(
+                              value: selectedCategory,
+                              decoration: const InputDecoration(labelText: 'License Category'),
+                              items: LicenseCategory.values
+                                  .map((LicenseCategory c) => DropdownMenuItem<LicenseCategory>(
+                                        value: c,
+                                        child: Text(c.name),
+                                      ))
+                                  .toList(),
+                              onChanged: (LicenseCategory? c) {
+                                if (c != null) setState(() => selectedCategory = c);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: expiryCtrl,
+                              readOnly: true,
+                              decoration: const InputDecoration(
+                                labelText: 'License Expiry Date',
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              onTap: () async {
+                                final DateTime? date = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(const Duration(days: 7300)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    selectedDate = date;
+                                    expiryCtrl.text =
+                                        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                  });
+                                }
+                              },
+                              validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: scoreCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Initial Safety Score (0-100)'),
+                      validator: (String? v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final double? score = double.tryParse(v);
+                        if (score == null || score < 0 || score > 100) return 'Must be between 0 and 100';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    StatefulBuilder(
+                      builder: (BuildContext context, StateSetter setState) {
+                        return DropdownButtonFormField<DriverStatus>(
+                          value: selectedStatus,
+                          decoration: const InputDecoration(labelText: 'Initial Availability Status'),
+                          items: DriverStatus.values
+                              .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(
+                                    value: s,
+                                    child: Text(s == DriverStatus.OnTrip ? 'On Trip' : (s == DriverStatus.OffDuty ? 'Off Duty' : s.name)),
+                                  ))
+                              .toList(),
+                          onChanged: (DriverStatus? s) {
+                            if (s != null) setState(() => selectedStatus = s);
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+        actions: <Widget>[
+          Obx(() {
+            if (isChecking.value) return const SizedBox.shrink();
+
+            return TextButton(
+              onPressed: () => Get.back<dynamic>(),
+              child: const Text('Cancel'),
+            );
+          }),
+          Obx(() {
+            if (isChecking.value) return const SizedBox.shrink();
+
+            if (!hasChecked.value) {
+              return AppButton(
+                label: 'Check License',
+                onPressed: () async {
+                  if (checkFormKey.currentState?.validate() ?? false) {
+                    isChecking.value = true;
+                    // Simulate API network check latency
+                    await Future<void>.delayed(const Duration(milliseconds: 1200));
+                    isChecking.value = false;
+                    hasChecked.value = true;
+                  }
+                },
+              );
+            }
+
+            return AppButton(
+              label: 'Register Driver',
+              onPressed: () {
+                if (regFormKey.currentState?.validate() ?? false) {
+                  final DriverModel newDriver = DriverModel(
+                    fullName: nameCtrl.text.trim(),
+                    email: emailCtrl.text.trim(),
+                    contactNumber: contactCtrl.text.trim(),
+                    licenseNumber: licenseCheckCtrl.text.trim(),
+                    licenseCategory: selectedCategory,
+                    licenseExpiryDate: selectedDate,
+                    safetyScore: double.parse(scoreCtrl.text.trim()),
+                    status: selectedStatus,
+                  );
+                  controller.addDriver(newDriver);
+                  Get.back<dynamic>();
+                  _showActionSnackbar('Driver "${newDriver.fullName}" registered successfully! Password set to license.');
+                }
+              },
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDriverDialog(BuildContext context, int index) {
     final ThemeData theme = Theme.of(context);
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final DriverModel current = controller.driversList[index];
 
+    final TextEditingController nameCtrl = TextEditingController(text: current.fullName);
+    final TextEditingController emailCtrl = TextEditingController(text: current.email);
+    final TextEditingController contactCtrl = TextEditingController(text: current.contactNumber);
+    final TextEditingController expiryCtrl = TextEditingController(
+      text: '${current.licenseExpiryDate.year}-${current.licenseExpiryDate.month.toString().padLeft(2, '0')}-${current.licenseExpiryDate.day.toString().padLeft(2, '0')}',
+    );
+    final TextEditingController scoreCtrl = TextEditingController(text: current.safetyScore.toStringAsFixed(1));
+
+    LicenseCategory selectedCategory = current.licenseCategory;
+    DriverStatus selectedStatus = current.status;
+    DateTime selectedDate = current.licenseExpiryDate;
+
+    Get.dialog<dynamic>(
+      AlertDialog(
+        title: Row(
+          children: <Widget>[
+            Icon(Icons.edit_outlined, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            const Text('Edit Driver Profile'),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Full Name'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(labelText: 'Email Address'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (!GetUtils.isEmail(v.trim())) return 'Invalid email format';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: contactCtrl,
+                    decoration: const InputDecoration(labelText: 'Contact Number'),
+                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: current.licenseNumber,
+                    enabled: false,
+                    decoration: const InputDecoration(labelText: 'License Number (Read-only)'),
+                  ),
+                  const SizedBox(height: 12),
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: <Widget>[
+                          DropdownButtonFormField<LicenseCategory>(
+                            value: selectedCategory,
+                            decoration: const InputDecoration(labelText: 'License Category'),
+                            items: LicenseCategory.values
+                                .map((LicenseCategory c) => DropdownMenuItem<LicenseCategory>(
+                                      value: c,
+                                      child: Text(c.name),
+                                    ))
+                                .toList(),
+                            onChanged: (LicenseCategory? c) {
+                              if (c != null) setState(() => selectedCategory = c);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: expiryCtrl,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              labelText: 'License Expiry Date',
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
+                            onTap: () async {
+                              final DateTime? date = await showDatePicker(
+                                context: context,
+                                initialDate: selectedDate,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime.now().add(const Duration(days: 7300)),
+                              );
+                              if (date != null) {
+                                setState(() {
+                                  selectedDate = date;
+                                  expiryCtrl.text =
+                                      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                                });
+                              }
+                            },
+                            validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: scoreCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Safety Score (0-100)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      final double? score = double.tryParse(v);
+                      if (score == null || score < 0 || score > 100) return 'Must be between 0 and 100';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return DropdownButtonFormField<DriverStatus>(
+                        value: selectedStatus,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: DriverStatus.values
+                            .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(
+                                  value: s,
+                                  child: Text(s == DriverStatus.OnTrip ? 'On Trip' : (s == DriverStatus.OffDuty ? 'Off Duty' : s.name)),
+                                ))
+                            .toList(),
+                        onChanged: (DriverStatus? s) {
+                          if (s != null) setState(() => selectedStatus = s);
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back<dynamic>(),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            label: 'Save Changes',
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                final DriverModel updated = DriverModel(
+                  fullName: nameCtrl.text.trim(),
+                  email: emailCtrl.text.trim(),
+                  contactNumber: contactCtrl.text.trim(),
+                  licenseNumber: current.licenseNumber,
+                  licenseCategory: selectedCategory,
+                  licenseExpiryDate: selectedDate,
+                  safetyScore: double.parse(scoreCtrl.text.trim()),
+                  status: selectedStatus,
+                );
+                controller.driversList[index] = updated;
+                Get.back<dynamic>();
+                _showActionSnackbar('Driver modifications saved successfully!');
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRegisterVehicleDialog(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final GlobalKey<FormState> checkFormKey = GlobalKey<FormState>();
+    final GlobalKey<FormState> regFormKey = GlobalKey<FormState>();
+
+    final TextEditingController regCheckCtrl = TextEditingController();
     final TextEditingController nameCtrl = TextEditingController();
     final TextEditingController numberCtrl = TextEditingController();
-    final TextEditingController regCtrl = TextEditingController();
     final TextEditingController chasisCtrl = TextEditingController();
     final TextEditingController capacityCtrl = TextEditingController();
     final TextEditingController odometerCtrl = TextEditingController();
     final TextEditingController costCtrl = TextEditingController();
+
+    final RxBool isChecking = false.obs;
+    final RxBool hasChecked = false.obs;
 
     VehicleType selectedType = VehicleType.Van;
     CapacityUnit selectedUnit = CapacityUnit.Kg;
@@ -735,175 +1327,266 @@ class DashboardView extends GetView<DashboardController> {
         content: SizedBox(
           width: 500,
           child: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Vehicle Name (e.g. Tata Ace)'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+            child: Obx(() {
+              if (isChecking.value) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Checking database...',
+                        style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: numberCtrl,
-                    decoration: const InputDecoration(labelText: 'Vehicle Plate Number'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                );
+              }
+
+              if (!hasChecked.value) {
+                return Form(
+                  key: checkFormKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Step 1: Check Vehicle Registration',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter the vehicle\'s registration number to verify if it exists in our database.',
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: regCheckCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Vehicle Registration Number',
+                          hintText: 'e.g. REG-8901',
+                        ),
+                        validator: (String? v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          final bool isDuplicate = controller.vehiclesList.any((VehicleModel veh) =>
+                              veh.registrationNumber.trim().toLowerCase() == v.trim().toLowerCase());
+                          if (isDuplicate) return 'Registration number must be unique';
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: regCtrl,
-                    decoration: const InputDecoration(labelText: 'Registration Number (Unique)'),
-                    validator: (String? v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      final bool isDuplicate = controller.vehiclesList.any((VehicleModel veh) =>
-                          veh.registrationNumber.trim().toLowerCase() == v.trim().toLowerCase());
-                      if (isDuplicate) return 'Registration number must be unique';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: chasisCtrl,
-                    decoration: const InputDecoration(labelText: 'Chasis Number'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setState) {
-                      return Column(
+                );
+              }
+
+              return Form(
+                key: regFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                      ),
+                      child: Row(
                         children: <Widget>[
-                          DropdownButtonFormField<VehicleType>(
-                            value: selectedType,
-                            decoration: const InputDecoration(labelText: 'Vehicle Type'),
-                            items: VehicleType.values
-                                .map((VehicleType t) => DropdownMenuItem<VehicleType>(
-                                      value: t,
-                                      child: Text(t == VehicleType.MiniTruck ? 'Mini Truck' : (t == VehicleType.MiniVan ? 'Mini Van' : t.name)),
-                                    ))
-                                .toList(),
-                            onChanged: (VehicleType? v) {
-                              if (v != null) setState(() => selectedType = v);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                flex: 2,
-                                child: TextFormField(
-                                  controller: capacityCtrl,
-                                  keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'Max Load Capacity'),
-                                  validator: (String? v) {
-                                    if (v == null || v.trim().isEmpty) return 'Required';
-                                    if (double.tryParse(v) == null) return 'Must be a number';
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<CapacityUnit>(
-                                  value: selectedUnit,
-                                  decoration: const InputDecoration(labelText: 'Unit'),
-                                  items: CapacityUnit.values
-                                      .map((CapacityUnit u) => DropdownMenuItem<CapacityUnit>(
-                                            value: u,
-                                            child: Text(u.name),
-                                          ))
-                                      .toList(),
-                                  onChanged: (CapacityUnit? u) {
-                                    if (u != null) setState(() => selectedUnit = u);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: odometerCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Odometer (Current km)',
-                              helperText: 'Total cumulative mileage covered (in km)',
+                          const Icon(Icons.info_outline, color: Colors.amber),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Registration "${regCheckCtrl.text.trim()}" not found in database. Proceeding with new vehicle registration.',
+                              style: const TextStyle(fontSize: 11, height: 1.3),
                             ),
-                            validator: (String? v) {
-                              if (v == null || v.trim().isEmpty) return 'Required';
-                              if (double.tryParse(v) == null) return 'Must be a number';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: costCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.digitsOnly,
-                              IndianCurrencyInputFormatter(),
-                            ],
-                            decoration: const InputDecoration(
-                              labelText: 'Acquisition Cost',
-                              prefixText: '₹ ',
-                            ),
-                            validator: (String? v) {
-                              if (v == null || v.trim().isEmpty) return 'Required';
-                              final String cleaned = v.replaceAll(',', '').trim();
-                              if (double.tryParse(cleaned) == null) return 'Must be a number';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<VehicleStatus>(
-                            value: selectedStatus,
-                            decoration: const InputDecoration(labelText: 'Status'),
-                            items: VehicleStatus.values
-                                .map((VehicleStatus s) => DropdownMenuItem<VehicleStatus>(
-                                      value: s,
-                                      child: Text(s == VehicleStatus.OnTrip ? 'On Trip' : (s == VehicleStatus.InShop ? 'In Shop' : s.name)),
-                                    ))
-                                .toList(),
-                            onChanged: (VehicleStatus? s) {
-                              if (s != null) setState(() => selectedStatus = s);
-                            },
                           ),
                         ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Vehicle Name (e.g. Tata Ace)'),
+                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: numberCtrl,
+                      decoration: const InputDecoration(labelText: 'Vehicle Plate Number'),
+                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue: regCheckCtrl.text.trim(),
+                      enabled: false,
+                      decoration: const InputDecoration(labelText: 'Verified Registration Number'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: chasisCtrl,
+                      decoration: const InputDecoration(labelText: 'Chasis Number'),
+                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    StatefulBuilder(
+                      builder: (BuildContext context, StateSetter setState) {
+                        return Column(
+                          children: <Widget>[
+                            DropdownButtonFormField<VehicleType>(
+                              value: selectedType,
+                              decoration: const InputDecoration(labelText: 'Vehicle Type'),
+                              items: VehicleType.values
+                                  .map((VehicleType t) => DropdownMenuItem<VehicleType>(
+                                        value: t,
+                                        child: Text(t == VehicleType.MiniTruck ? 'Mini Truck' : (t == VehicleType.MiniVan ? 'Mini Van' : t.name)),
+                                      ))
+                                  .toList(),
+                              onChanged: (VehicleType? v) {
+                                if (v != null) setState(() => selectedType = v);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: capacityCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Max Load Capacity'),
+                                    validator: (String? v) {
+                                      if (v == null || v.trim().isEmpty) return 'Required';
+                                      if (double.tryParse(v) == null) return 'Must be a number';
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<CapacityUnit>(
+                                    value: selectedUnit,
+                                    decoration: const InputDecoration(labelText: 'Unit'),
+                                    items: CapacityUnit.values
+                                        .map((CapacityUnit u) => DropdownMenuItem<CapacityUnit>(
+                                              value: u,
+                                              child: Text(u.name),
+                                            ))
+                                        .toList(),
+                                    onChanged: (CapacityUnit? u) {
+                                      if (u != null) setState(() => selectedUnit = u);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: odometerCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Odometer (Current km)',
+                                helperText: 'Total cumulative mileage covered (in km)',
+                              ),
+                              validator: (String? v) {
+                                if (v == null || v.trim().isEmpty) return 'Required';
+                                if (double.tryParse(v) == null) return 'Must be a number';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: costCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: <TextInputFormatter>[
+                                FilteringTextInputFormatter.digitsOnly,
+                                IndianCurrencyInputFormatter(),
+                              ],
+                              decoration: const InputDecoration(
+                                labelText: 'Acquisition Cost',
+                                prefixText: '₹ ',
+                              ),
+                              validator: (String? v) {
+                                if (v == null || v.trim().isEmpty) return 'Required';
+                                final String cleaned = v.replaceAll(',', '').trim();
+                                if (double.tryParse(cleaned) == null) return 'Must be a number';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<VehicleStatus>(
+                              value: selectedStatus,
+                              decoration: const InputDecoration(labelText: 'Status'),
+                              items: VehicleStatus.values
+                                  .map((VehicleStatus s) => DropdownMenuItem<VehicleStatus>(
+                                        value: s,
+                                        child: Text(s == VehicleStatus.OnTrip ? 'On Trip' : (s == VehicleStatus.InShop ? 'In Shop' : s.name)),
+                                      ))
+                                  .toList(),
+                              onChanged: (VehicleStatus? s) {
+                                if (s != null) setState(() => selectedStatus = s);
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }),
           ),
         ),
         actions: <Widget>[
-          TextButton(
-            onPressed: () => Get.back<dynamic>(),
-            child: const Text('Cancel'),
-          ),
-          AppButton(
-            label: 'Register',
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                final VehicleModel newVehicle = VehicleModel(
-                  name: nameCtrl.text.trim(),
-                  number: numberCtrl.text.trim(),
-                  registrationNumber: regCtrl.text.trim(),
-                  chasisNumber: chasisCtrl.text.trim(),
-                  type: selectedType,
-                  maxLoadCapacity: double.parse(capacityCtrl.text.trim()),
-                  capacityUnit: selectedUnit,
-                  odometer: double.parse(odometerCtrl.text.trim()),
-                  acquisitionCost: double.parse(costCtrl.text.replaceAll(',', '').trim()),
-                  status: selectedStatus,
-                );
-                controller.addVehicle(newVehicle);
-                Get.back<dynamic>();
-                _showActionSnackbar('Vehicle registered successfully!');
-              }
-            },
-          ),
+          Obx(() {
+            if (isChecking.value) return const SizedBox.shrink();
+            return TextButton(
+              onPressed: () => Get.back<dynamic>(),
+              child: const Text('Cancel'),
+            );
+          }),
+          Obx(() {
+            if (isChecking.value) return const SizedBox.shrink();
+
+            if (!hasChecked.value) {
+              return AppButton(
+                label: 'Check Registration',
+                onPressed: () async {
+                  if (checkFormKey.currentState?.validate() ?? false) {
+                    isChecking.value = true;
+                    await Future<void>.delayed(const Duration(milliseconds: 1200));
+                    isChecking.value = false;
+                    hasChecked.value = true;
+                  }
+                },
+              );
+            }
+
+            return AppButton(
+              label: 'Register',
+              onPressed: () {
+                if (regFormKey.currentState?.validate() ?? false) {
+                  final VehicleModel newVehicle = VehicleModel(
+                    name: nameCtrl.text.trim(),
+                    number: numberCtrl.text.trim(),
+                    registrationNumber: regCheckCtrl.text.trim(),
+                    chasisNumber: chasisCtrl.text.trim(),
+                    type: selectedType,
+                    maxLoadCapacity: double.parse(capacityCtrl.text.trim()),
+                    capacityUnit: selectedUnit,
+                    odometer: double.parse(odometerCtrl.text.trim()),
+                    acquisitionCost: double.parse(costCtrl.text.replaceAll(',', '').trim()),
+                    status: selectedStatus,
+                  );
+                  controller.addVehicle(newVehicle);
+                  Get.back<dynamic>();
+                  _showActionSnackbar('Vehicle registered successfully!');
+                }
+              },
+            );
+          }),
         ],
       ),
     );
