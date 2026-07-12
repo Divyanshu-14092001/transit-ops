@@ -1,6 +1,9 @@
 import { prisma } from "../../config/prisma";
 import { VehiclesRepository } from "./vehicles.repository";
 import { CreateVehicleInput } from "./vehicles.validator";
+import { CustomError } from "../../utils/custom-error";
+import { HTTP_STATUS } from "@transitops/shared";
+import { VehicleStatus } from "@prisma/client";
 
 export class VehiclesService {
   private vehiclesRepository = new VehiclesRepository();
@@ -14,20 +17,15 @@ export class VehiclesService {
     });
 
     if (!userOrg) {
-      throw new Error(
-        "Unauthorized: User does not belong to any active organization",
-      );
+      throw new CustomError("Unauthorized: User does not belong to any active organization", HTTP_STATUS.UNAUTHORIZED);
     }
 
     return userOrg.organizationId;
   }
 
-  async getVehicles(query: { registrationNumber?: string }, userId: string) {
+  async getVehicles(query: { registrationNumber?: string; status?: VehicleStatus }, userId: string) {
     const organizationId = await this.getActiveOrganizationId(userId);
-    return this.vehiclesRepository.getVehicles(
-      organizationId,
-      query.registrationNumber,
-    );
+    return this.vehiclesRepository.getVehicles(organizationId, query.registrationNumber, query.status);
   }
 
   async createVehicle(input: CreateVehicleInput, userId: string) {
@@ -40,9 +38,7 @@ export class VehiclesService {
     );
     if (!fleet) {
       if (input.fleetId) {
-        throw new Error(
-          "The specified fleet is invalid or inactive for your organization",
-        );
+        throw new CustomError("The specified fleet is invalid or inactive for your organization", HTTP_STATUS.BAD_REQUEST);
       }
       // Create a default fleet if no fleet exists at all
       fleet = await this.vehiclesRepository.createDefaultFleet(organizationId);

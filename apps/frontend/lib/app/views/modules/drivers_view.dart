@@ -4,6 +4,7 @@ import '../../../core/widgets/access_control.dart';
 import '../../../core/services/access_control_service.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../controllers/dashboard_controller.dart';
+import '../../../core/utils/validators.dart';
 import 'dashboard_helpers.dart';
 
 class DriversView extends GetView<DashboardController> {
@@ -54,7 +55,13 @@ class DriversView extends GetView<DashboardController> {
                           ...DriverStatus.values.map(
                             (DriverStatus status) => DropdownMenuItem<DriverStatus?>(
                               value: status,
-                              child: Text(status.name),
+                              child: Text(status == DriverStatus.ON_TRIP
+                                  ? 'On Trip'
+                                  : (status == DriverStatus.OFF_DUTY
+                                      ? 'Off Duty'
+                                      : (status == DriverStatus.AVAILABLE
+                                          ? 'Available'
+                                          : 'Suspended'))),
                             ),
                           ),
                         ],
@@ -107,15 +114,11 @@ class DriversView extends GetView<DashboardController> {
                               case DriverStatus.ON_TRIP:
                                 statusColor = Colors.blue;
                                 break;
-                              case DriverStatus.ON_LEAVE:
+                              case DriverStatus.OFF_DUTY:
                                 statusColor = Colors.orange;
                                 break;
                               case DriverStatus.SUSPENDED:
                                 statusColor = Colors.red;
-                                break;
-                              case DriverStatus.INACTIVE:
-                              case DriverStatus.RETIRED:
-                                statusColor = Colors.grey;
                                 break;
                               default:
                                 statusColor = Colors.blue;
@@ -154,7 +157,13 @@ class DriversView extends GetView<DashboardController> {
                                   Text('Safety Score: ${item.safetyScore.toStringAsFixed(1)}', style: const TextStyle(fontSize: 11)),
                                   const SizedBox(height: 2),
                                   StatusBadge(
-                                    status: item.status.name,
+                                    status: item.status == DriverStatus.ON_TRIP
+                                        ? 'On Trip'
+                                        : (item.status == DriverStatus.OFF_DUTY
+                                            ? 'Off Duty'
+                                            : (item.status == DriverStatus.AVAILABLE
+                                                ? 'Available'
+                                                : 'Suspended')),
                                     color: statusColor,
                                   ),
                                 ],
@@ -284,25 +293,21 @@ class DriversView extends GetView<DashboardController> {
                     const Text('1. User Account Registration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))
                   ]),
                   const Divider(height: 16),
-                  TextFormField(
+                   TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Full Name'),
-                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                      validator: (String? v) => AppValidators.validateRequired(v, 'Full Name')),
                   const SizedBox(height: 12),
                   TextFormField(
                       controller: emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email Address'),
-                      validator: (String? v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
-                        if (!GetUtils.isEmail(v.trim())) return 'Invalid email format';
-                        return null;
-                      }),
+                      validator: (String? v) => AppValidators.validateEmail(v)),
                   const SizedBox(height: 12),
                   TextFormField(
                       controller: contactCtrl,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(labelText: 'Contact Number'),
-                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                      validator: (String? v) => AppValidators.validatePhone(v)),
                   const SizedBox(height: 24),
                   Row(children: <Widget>[
                     Icon(Icons.badge_outlined, size: 18, color: theme.colorScheme.secondary),
@@ -313,7 +318,7 @@ class DriversView extends GetView<DashboardController> {
                   TextFormField(
                       controller: employeeCodeCtrl,
                       decoration: const InputDecoration(labelText: 'Employee Code', hintText: 'e.g. EMP0042'),
-                      validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                      validator: (String? v) => AppValidators.validateRequired(v, 'Employee Code')),
                   const SizedBox(height: 12),
                   TextFormField(
                       initialValue: licenseCheckCtrl.text.trim(),
@@ -380,19 +385,14 @@ class DriversView extends GetView<DashboardController> {
                       controller: scoreCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(labelText: 'Initial Safety Score (0-100)'),
-                      validator: (String? v) {
-                        if (v == null || v.trim().isEmpty) return 'Required';
-                        final double? s = double.tryParse(v);
-                        if (s == null || s < 0 || s > 100) return 'Must be between 0 and 100';
-                        return null;
-                      }),
+                      validator: (String? v) => AppValidators.validateSafetyScore(v)),
                   const SizedBox(height: 12),
                   StatefulBuilder(
                       builder: (BuildContext ctx, StateSetter setState) => DropdownButtonFormField<DriverStatus>(
                           value: selectedStatus,
                           decoration: const InputDecoration(labelText: 'Initial Availability Status'),
                           items: DriverStatus.values
-                              .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(value: s, child: Text(s.name)))
+                              .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(value: s, child: Text(s == DriverStatus.ON_TRIP ? 'On Trip' : (s == DriverStatus.OFF_DUTY ? 'Off Duty' : (s == DriverStatus.AVAILABLE ? 'Available' : 'Suspended')))))
                               .toList(),
                           onChanged: (DriverStatus? s) {
                             if (s != null) setState(() => selectedStatus = s);
@@ -415,45 +415,51 @@ class DriversView extends GetView<DashboardController> {
                   onPressed: () async {
                     if (checkFormKey.currentState?.validate() ?? false) {
                       isChecking.value = true;
-                      final DriverModel? found = await controller.checkLicense(licenseCheckCtrl.text.trim());
-                      isChecking.value = false;
+                      try {
+                        final DriverModel? found = await controller.checkLicense(licenseCheckCtrl.text.trim());
+                        isChecking.value = false;
 
-                      if (found != null) {
-                        nameCtrl.text = found.fullName;
-                        emailCtrl.text = found.email;
-                        contactCtrl.text = found.contactNumber;
-                        employeeCodeCtrl.text = found.employeeCode;
-                        selectedCategory = found.licenseCategory;
-                        selectedIssueDate = found.licenseIssuedAt;
-                        selectedExpiryDate = found.licenseExpiryDate;
-                        issueDateCtrl.text =
-                            '${selectedIssueDate.year}-${selectedIssueDate.month.toString().padLeft(2, '0')}-${selectedIssueDate.day.toString().padLeft(2, '0')}';
-                        expiryCtrl.text =
-                            '${selectedExpiryDate.year}-${selectedExpiryDate.month.toString().padLeft(2, '0')}-${selectedExpiryDate.day.toString().padLeft(2, '0')}';
-                        scoreCtrl.text = found.safetyScore.toStringAsFixed(1);
-                        selectedStatus = found.status;
-                        isExisting.value = true;
-                      } else {
-                        nameCtrl.clear();
-                        emailCtrl.clear();
-                        contactCtrl.clear();
-                        employeeCodeCtrl.clear();
-                        issueDateCtrl.clear();
-                        expiryCtrl.clear();
-                        scoreCtrl.text = '90.0';
-                        selectedCategory = LicenseCategory.LMV;
-                        selectedStatus = DriverStatus.AVAILABLE;
-                        selectedIssueDate = DateTime.now().subtract(const Duration(days: 365));
-                        selectedExpiryDate = DateTime.now().add(const Duration(days: 365));
-                        isExisting.value = false;
+                        if (found != null) {
+                          nameCtrl.text = found.fullName;
+                          emailCtrl.text = found.email;
+                          contactCtrl.text = found.contactNumber;
+                          employeeCodeCtrl.text = found.employeeCode;
+                          selectedCategory = found.licenseCategory;
+                          selectedIssueDate = found.licenseIssuedAt;
+                          selectedExpiryDate = found.licenseExpiryDate;
+                          issueDateCtrl.text =
+                              '${selectedIssueDate.year}-${selectedIssueDate.month.toString().padLeft(2, '0')}-${selectedIssueDate.day.toString().padLeft(2, '0')}';
+                          expiryCtrl.text =
+                              '${selectedExpiryDate.year}-${selectedExpiryDate.month.toString().padLeft(2, '0')}-${selectedExpiryDate.day.toString().padLeft(2, '0')}';
+                          scoreCtrl.text = found.safetyScore.toStringAsFixed(1);
+                          selectedStatus = found.status;
+                          isExisting.value = true;
+                        } else {
+                          nameCtrl.clear();
+                          emailCtrl.clear();
+                          contactCtrl.clear();
+                          employeeCodeCtrl.clear();
+                          issueDateCtrl.clear();
+                          expiryCtrl.clear();
+                          scoreCtrl.text = '90.0';
+                          selectedCategory = LicenseCategory.LMV;
+                          selectedStatus = DriverStatus.AVAILABLE;
+                          selectedIssueDate = DateTime.now().subtract(const Duration(days: 365));
+                          selectedExpiryDate = DateTime.now().add(const Duration(days: 365));
+                          isExisting.value = false;
+                        }
+                        hasChecked.value = true;
+                      } catch (e) {
+                        isChecking.value = false;
+                        final String errMsg = e.toString().replaceFirst('Exception: ', '');
+                        showActionSnackbar(errMsg);
                       }
-                      hasChecked.value = true;
                     }
                   });
             }
             return AppButton(
               label: isExisting.value ? 'Save Driver' : 'Register Driver',
-              onPressed: () async {
+              onPressed: () {
                 if (regFormKey.currentState?.validate() ?? false) {
                   final DriverModel driverData = DriverModel(
                     fullName: nameCtrl.text.trim(),
@@ -468,15 +474,16 @@ class DriversView extends GetView<DashboardController> {
                     status: selectedStatus,
                   );
                   
-                  final bool success = await controller.addDriver(driverData);
-                  if (success) {
-                    showActionSnackbar(isExisting.value
-                        ? 'Driver "${driverData.fullName}" profile linked & updated!'
-                        : 'Driver "${driverData.fullName}" registered successfully!');
-                  } else {
-                    showActionSnackbar('Failed to save driver profile. Please try again.');
-                  }
                   Get.back<dynamic>();
+                  controller.addDriver(driverData).then((bool success) {
+                    if (success) {
+                      showActionSnackbar(isExisting.value
+                          ? 'Driver "${driverData.fullName}" profile linked & updated!'
+                          : 'Driver "${driverData.fullName}" registered successfully!');
+                    } else {
+                      showActionSnackbar('Failed to save driver profile. Please try again.');
+                    }
+                  });
                 }
               },
             );
@@ -523,26 +530,22 @@ class DriversView extends GetView<DashboardController> {
                 TextFormField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(labelText: 'Full Name'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                    validator: (String? v) => AppValidators.validateRequired(v, 'Full Name')),
                 const SizedBox(height: 12),
                 TextFormField(
                     controller: emailCtrl,
                     decoration: const InputDecoration(labelText: 'Email Address'),
-                    validator: (String? v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      if (!GetUtils.isEmail(v.trim())) return 'Invalid email format';
-                      return null;
-                    }),
+                    validator: (String? v) => AppValidators.validateEmail(v)),
                 const SizedBox(height: 12),
                 TextFormField(
                     controller: contactCtrl,
                     decoration: const InputDecoration(labelText: 'Contact Number'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                    validator: (String? v) => AppValidators.validatePhone(v)),
                 const SizedBox(height: 12),
                 TextFormField(
                     controller: employeeCodeCtrl,
                     decoration: const InputDecoration(labelText: 'Employee Code'),
-                    validator: (String? v) => v == null || v.trim().isEmpty ? 'Required' : null),
+                    validator: (String? v) => AppValidators.validateRequired(v, 'Employee Code')),
                 const SizedBox(height: 12),
                 TextFormField(
                     initialValue: current.licenseNumber,
@@ -609,19 +612,14 @@ class DriversView extends GetView<DashboardController> {
                     controller: scoreCtrl,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(labelText: 'Safety Score (0-100)'),
-                    validator: (String? v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      final double? s = double.tryParse(v);
-                      if (s == null || s < 0 || s > 100) return 'Must be between 0 and 100';
-                      return null;
-                    }),
+                    validator: (String? v) => AppValidators.validateSafetyScore(v)),
                 const SizedBox(height: 12),
                 StatefulBuilder(
                     builder: (BuildContext ctx, StateSetter setState) => DropdownButtonFormField<DriverStatus>(
                         value: selectedStatus,
                         decoration: const InputDecoration(labelText: 'Status'),
                         items: DriverStatus.values
-                            .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(value: s, child: Text(s.name)))
+                            .map((DriverStatus s) => DropdownMenuItem<DriverStatus>(value: s, child: Text(s == DriverStatus.ON_TRIP ? 'On Trip' : (s == DriverStatus.OFF_DUTY ? 'Off Duty' : (s == DriverStatus.AVAILABLE ? 'Available' : 'Suspended')))))
                             .toList(),
                         onChanged: (DriverStatus? s) {
                           if (s != null) setState(() => selectedStatus = s);
@@ -634,7 +632,7 @@ class DriversView extends GetView<DashboardController> {
           TextButton(onPressed: () => Get.back<dynamic>(), child: const Text('Cancel')),
           AppButton(
               label: 'Save Changes',
-              onPressed: () async {
+              onPressed: () {
                 if (formKey.currentState?.validate() ?? false) {
                   final DriverModel driverData = DriverModel(
                     fullName: nameCtrl.text.trim(),
@@ -648,13 +646,14 @@ class DriversView extends GetView<DashboardController> {
                     safetyScore: double.parse(scoreCtrl.text.trim()),
                     status: selectedStatus,
                   );
-                  final bool success = await controller.addDriver(driverData);
-                  if (success) {
-                    showActionSnackbar('Driver modifications saved successfully!');
-                  } else {
-                    showActionSnackbar('Failed to save changes. Please try again.');
-                  }
                   Get.back<dynamic>();
+                  controller.addDriver(driverData).then((bool success) {
+                    if (success) {
+                      showActionSnackbar('Driver modifications saved successfully!');
+                    } else {
+                      showActionSnackbar('Failed to save changes. Please try again.');
+                    }
+                  });
                 }
               }),
         ],

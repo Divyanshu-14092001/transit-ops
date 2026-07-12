@@ -8,6 +8,7 @@ import {
 
 export const getVehiclesQuerySchema = z.object({
   registrationNumber: z.string().optional(),
+  status: z.nativeEnum(VehicleStatus).optional(),
 });
 
 export const createVehicleSchema = z.object({

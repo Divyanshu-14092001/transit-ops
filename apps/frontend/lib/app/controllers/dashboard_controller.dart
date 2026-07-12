@@ -28,6 +28,7 @@ class DashboardController extends GetxController {
 
   // Reactive Vehicles List
   final RxList<VehicleModel> vehiclesList = <VehicleModel>[].obs;
+  final Rxn<VehicleStatus> selectedVehicleStatusFilter = Rxn<VehicleStatus>();
 
   // Reactive Drivers List
   final RxList<DriverModel> driversList = <DriverModel>[].obs;
@@ -48,6 +49,7 @@ class DashboardController extends GetxController {
     // Auto-fetch drivers when query or status filter changes
     debounce<String>(driverSearchQuery, (_) => fetchDrivers(), time: const Duration(milliseconds: 300));
     ever<DriverStatus?>(selectedDriverStatusFilter, (_) => fetchDrivers());
+    ever<VehicleStatus?>(selectedVehicleStatusFilter, (_) => fetchVehicles());
   }
 
   void selectModule(String module) {
@@ -289,8 +291,14 @@ class DashboardController extends GetxController {
 
   Future<void> fetchVehicles() async {
     try {
+      final Map<String, dynamic> queryParameters = <String, dynamic>{};
+      if (selectedVehicleStatusFilter.value != null) {
+        queryParameters['status'] = selectedVehicleStatusFilter.value!.name;
+      }
+
       final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
         '/vehicles',
+        queryParameters: queryParameters,
       );
 
       if (response.statusCode == 200 && response.data != null) {
@@ -302,12 +310,10 @@ class DashboardController extends GetxController {
           } else if (data is Map && data['items'] != null) {
             items = data['items'] as List<dynamic>;
           }
-          if (items.isNotEmpty) {
-            final List<VehicleModel> loadedVehicles = items
-                .map((dynamic item) => VehicleModel.fromJson(item as Map<String, dynamic>))
-                .toList();
-            vehiclesList.assignAll(loadedVehicles);
-          }
+          final List<VehicleModel> loadedVehicles = items
+              .map((dynamic item) => VehicleModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          vehiclesList.assignAll(loadedVehicles);
         }
       }
     } catch (e) {
@@ -420,6 +426,12 @@ class DashboardController extends GetxController {
           }
         }
       }
+    } on dio.DioException catch (e) {
+      final dynamic responseData = e.response?.data;
+      if (responseData != null && responseData['message'] != null) {
+        throw Exception(responseData['message'].toString());
+      }
+      rethrow;
     } catch (e) {
       // Error checking license
     }
@@ -455,7 +467,7 @@ class DashboardController extends GetxController {
 
 // Vehicle Enums and Models
 enum VehicleType { VAN, TRUCK, MINI_TRUCK, TANKER, OTHER }
-enum CapacityUnit { PERSON, KILOGRAM, TONNE, LITRE, CUBIC_METRE }
+enum CapacityUnit { KILOGRAM, LITRE }
 enum VehicleStatus { AVAILABLE, ON_TRIP, IN_SHOP, RETIRED }
 
 class VehicleModel {
@@ -526,7 +538,7 @@ class VehicleModel {
 }
 
 // Driver Enums and Models
-enum DriverStatus { AVAILABLE, ASSIGNED, ON_TRIP, ON_LEAVE, SUSPENDED, INACTIVE, RETIRED }
+enum DriverStatus { AVAILABLE, ON_TRIP, OFF_DUTY, SUSPENDED }
 enum LicenseCategory { LMV, HMV, TRANSPORT, COMMERCIAL, OTHER }
 
 class DriverModel {

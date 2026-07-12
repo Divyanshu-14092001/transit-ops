@@ -1,15 +1,21 @@
 import { prisma } from "../../config/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, VehicleStatus } from "@prisma/client";
 
 export class VehiclesRepository {
-  async getVehicles(organizationId: string, registrationNumber?: string) {
+  async getVehicles(organizationId: string, registrationNumber?: string, status?: VehicleStatus) {
+    const whereClause: any = {
+      organizationId,
+      deletedAt: null,
+    };
+
+    if (status) {
+      whereClause.status = status;
+    }
+
     if (registrationNumber) {
+      whereClause.registrationNumber = registrationNumber;
       return prisma.vehicle.findFirst({
-        where: {
-          organizationId,
-          registrationNumber,
-          deletedAt: null,
-        },
+        where: whereClause,
         include: {
           fleet: true,
         },
@@ -17,10 +23,7 @@ export class VehiclesRepository {
     }
 
     return prisma.vehicle.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-      },
+      where: whereClause,
       include: {
         fleet: true,
       },
