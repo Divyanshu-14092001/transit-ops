@@ -50,6 +50,10 @@ class DashboardController extends GetxController {
   // Reactive Utilization Trends List
   final RxList<Map<String, dynamic>> utilizationTrends = <Map<String, dynamic>>[].obs;
 
+  // Reactive Expenses and Fuel Logs Lists
+  final RxList<ExpenseModel> expensesList = <ExpenseModel>[].obs;
+  final RxList<FuelLogModel> fuelLogsList = <FuelLogModel>[].obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -137,6 +141,8 @@ class DashboardController extends GetxController {
     // Refresh related lists
     await fetchVehicles();
     await fetchMaintenance();
+    await fetchExpenses();
+    await fetchFuelLogs();
     
     if (vehiclesList.isEmpty) {
       vehiclesList.assignAll(<VehicleModel>[
@@ -550,6 +556,119 @@ class DashboardController extends GetxController {
     }
   }
 
+  Future<void> fetchExpenses() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/expenses',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          List<dynamic> items = <dynamic>[];
+          if (data is List) {
+            items = data;
+          } else if (data is Map && data['items'] != null) {
+            items = data['items'] as List<dynamic>;
+          }
+          final List<ExpenseModel> loaded = items
+              .map((dynamic item) => ExpenseModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          expensesList.assignAll(loaded);
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
+    }
+  }
+
+  Future<bool> addExpense(ExpenseModel record) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/expenses',
+        data: record.toJson(),
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await fetchExpenses();
+        await fetchDashboardData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> approveExpense(String id, String status) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.put<dynamic>(
+        '/expenses/$id/status',
+        data: <String, String>{'status': status},
+      );
+      if (response.statusCode == 200) {
+        await fetchExpenses();
+        await fetchDashboardData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchFuelLogs() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/fuel',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          List<dynamic> items = <dynamic>[];
+          if (data is List) {
+            items = data;
+          } else if (data is Map && data['items'] != null) {
+            items = data['items'] as List<dynamic>;
+          }
+          final List<FuelLogModel> loaded = items
+              .map((dynamic item) => FuelLogModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          fuelLogsList.assignAll(loaded);
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
+    }
+  }
+
+  Future<bool> addFuelLog(FuelLogModel log) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/fuel',
+        data: log.toJson(),
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await fetchFuelLogs();
+        await fetchExpenses();
+        await fetchDashboardData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> logout() async {
     await AuthService.to.logout();
     AppNavigator.replaceAllNamed<dynamic>(AppRoutes.login);
@@ -915,6 +1034,211 @@ class MaintenanceModel {
       if (actualCost != null) 'actualCost': actualCost,
       if (serviceProvider != null) 'serviceProvider': serviceProvider,
       if (invoiceNumber != null) 'invoiceNumber': invoiceNumber,
+      if (notes != null) 'notes': notes,
+    };
+  }
+}
+
+// Expense and Fuel Enums and Models
+enum ExpenseType {
+  FUEL,
+  TOLL,
+  INSURANCE,
+  PARKING,
+  MAINTENANCE,
+  FINE,
+  PERMIT,
+  DRIVER_ALLOWANCE,
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT,
+  SUBMITTED,
+  APPROVED,
+  REJECTED,
+  PAID,
+  CANCELLED
+}
+
+enum FuelType {
+  PETROL,
+  DIESEL,
+  CNG,
+  LNG,
+  ELECTRIC,
+  HYBRID,
+  OTHER
+}
+
+enum FuelQuantityUnit {
+  LITRE,
+  KILOGRAM,
+  KILOWATT_HOUR
+}
+
+class ExpenseModel {
+  final String id;
+  final double amount;
+  final String currency;
+  final ExpenseType expenseType;
+  final DateTime expenseDate;
+  final String? referenceNumber;
+  final String? description;
+  final String? receiptUrl;
+  final ExpenseStatus status;
+  final String? vehicleId;
+  final String? vehicleNumber;
+  final String? tripId;
+  final String? tripNumber;
+  final String? createdBy;
+  final String? approvedBy;
+
+  ExpenseModel({
+    required this.id,
+    required this.amount,
+    required this.currency,
+    required this.expenseType,
+    required this.expenseDate,
+    this.referenceNumber,
+    this.description,
+    this.receiptUrl,
+    required this.status,
+    this.vehicleId,
+    this.vehicleNumber,
+    this.tripId,
+    this.tripNumber,
+    this.createdBy,
+    this.approvedBy,
+  });
+
+  factory ExpenseModel.fromJson(Map<String, dynamic> json) {
+    final vehicle = json['vehicle'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final trip = json['trip'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final creator = json['createdBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final approver = json['approvedBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return ExpenseModel(
+      id: json['id'] as String? ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '') ?? 0.0,
+      currency: json['currency'] as String? ?? 'INR',
+      expenseType: ExpenseType.values.firstWhere(
+        (e) => e.name == json['expenseType'],
+        orElse: () => ExpenseType.OTHER,
+      ),
+      expenseDate: DateTime.tryParse(json['expenseDate'] as String? ?? '') ?? DateTime.now(),
+      referenceNumber: json['referenceNumber'] as String?,
+      description: json['description'] as String?,
+      receiptUrl: json['receiptUrl'] as String?,
+      status: ExpenseStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => ExpenseStatus.DRAFT,
+      ),
+      vehicleId: json['vehicleId'] as String?,
+      vehicleNumber: vehicle['vehicleNumber'] as String?,
+      tripId: json['tripId'] as String?,
+      tripNumber: trip['tripNumber'] as String?,
+      createdBy: creator['fullName'] as String?,
+      approvedBy: approver['fullName'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'amount': amount,
+      'expenseType': expenseType.name,
+      'expenseDate': expenseDate.toIso8601String(),
+      if (referenceNumber != null) 'referenceNumber': referenceNumber,
+      if (description != null) 'description': description,
+      if (receiptUrl != null) 'receiptUrl': receiptUrl,
+      if (vehicleId != null) 'vehicleId': vehicleId,
+      if (tripId != null) 'tripId': tripId,
+      'status': status.name,
+    };
+  }
+}
+
+class FuelLogModel {
+  final String id;
+  final String vehicleId;
+  final String vehicleNumber;
+  final String? tripId;
+  final String? tripNumber;
+  final FuelType fuelType;
+  final double quantity;
+  final FuelQuantityUnit quantityUnit;
+  final double pricePerUnit;
+  final double totalCost;
+  final DateTime fuelledAt;
+  final double odometerReading;
+  final String? fuelStationName;
+  final String? receiptNumber;
+  final String? notes;
+  final String? createdBy;
+
+  FuelLogModel({
+    required this.id,
+    required this.vehicleId,
+    required this.vehicleNumber,
+    this.tripId,
+    this.tripNumber,
+    required this.fuelType,
+    required this.quantity,
+    required this.quantityUnit,
+    required this.pricePerUnit,
+    required this.totalCost,
+    required this.fuelledAt,
+    required this.odometerReading,
+    this.fuelStationName,
+    this.receiptNumber,
+    this.notes,
+    this.createdBy,
+  });
+
+  factory FuelLogModel.fromJson(Map<String, dynamic> json) {
+    final vehicle = json['vehicle'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final trip = json['trip'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final creator = json['createdBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return FuelLogModel(
+      id: json['id'] as String? ?? '',
+      vehicleId: json['vehicleId'] as String? ?? '',
+      vehicleNumber: vehicle['vehicleNumber'] as String? ?? '',
+      tripId: json['tripId'] as String?,
+      tripNumber: trip['tripNumber'] as String?,
+      fuelType: FuelType.values.firstWhere(
+        (e) => e.name == json['fuelType'],
+        orElse: () => FuelType.OTHER,
+      ),
+      quantity: double.tryParse(json['quantity']?.toString() ?? '') ?? 0.0,
+      quantityUnit: FuelQuantityUnit.values.firstWhere(
+        (e) => e.name == json['quantityUnit'],
+        orElse: () => FuelQuantityUnit.LITRE,
+      ),
+      pricePerUnit: double.tryParse(json['pricePerUnit']?.toString() ?? '') ?? 0.0,
+      totalCost: double.tryParse(json['totalCost']?.toString() ?? '') ?? 0.0,
+      fuelledAt: DateTime.tryParse(json['fuelledAt'] as String? ?? '') ?? DateTime.now(),
+      odometerReading: double.tryParse(json['odometerReading']?.toString() ?? '') ?? 0.0,
+      fuelStationName: json['fuelStationName'] as String?,
+      receiptNumber: json['receiptNumber'] as String?,
+      notes: json['notes'] as String?,
+      createdBy: creator['fullName'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'vehicleId': vehicleId,
+      if (tripId != null) 'tripId': tripId,
+      'fuelType': fuelType.name,
+      'quantity': quantity,
+      'quantityUnit': quantityUnit.name,
+      'pricePerUnit': pricePerUnit,
+      'totalCost': totalCost,
+      'fuelledAt': fuelledAt.toIso8601String(),
+      'odometerReading': odometerReading,
+      if (fuelStationName != null) 'fuelStationName': fuelStationName,
+      if (receiptNumber != null) 'receiptNumber': receiptNumber,
       if (notes != null) 'notes': notes,
     };
   }

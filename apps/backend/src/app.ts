@@ -10,9 +10,10 @@ import { tripsRouter } from "./features/trips/trips.routes";
 import { locationsRouter } from "./features/locations/locations.routes";
 import { maintenanceRouter } from "./features/maintenance/maintenance.routes";
 import { dashboardRouter } from "./features/dashboard/dashboard.routes";
+import { expensesRouter } from "./features/expenses/expenses.routes";
+import { fuelRouter } from "./features/fuel/fuel.routes";
 
 const app = express();
-
 
 // Security Middlewares
 app.use(helmet());
@@ -78,6 +79,8 @@ app.use("/api/trips", tripsRouter);
 app.use("/api/locations", locationsRouter);
 app.use("/api/maintenance", maintenanceRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/expenses", expensesRouter);
+app.use("/api/fuel", fuelRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {

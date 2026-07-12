@@ -125,11 +125,6 @@ class DashboardView extends GetView<DashboardController> {
                     permission: BackendPermissions.expenseCreate,
                     child: _buildSidebarItem(context, label: 'Expenses & Finance', route: '/dashboard/expenses', icon: Icons.account_balance_wallet_outlined),
                   ),
-                  _buildSidebarItem(context, label: 'Announcements', route: '/dashboard/announcements', icon: Icons.campaign_outlined),
-                  AccessControl(
-                    permission: BackendPermissions.authRead,
-                    child: _buildSidebarItem(context, label: 'Developer & Audit', route: '/dashboard/dev-audit', icon: Icons.code_outlined),
-                  ),
                 ],
               ),
             ),
@@ -275,8 +270,6 @@ class DashboardView extends GetView<DashboardController> {
       '/dashboard/trips':        'Trips',
       '/dashboard/maintenance':  'Maintenance',
       '/dashboard/expenses':     'Expenses & Finance',
-      '/dashboard/announcements':'Announcements',
-      '/dashboard/dev-audit':    'Developer & Audit',
     };
     return labels[route] ?? 'Dashboard';
   }
