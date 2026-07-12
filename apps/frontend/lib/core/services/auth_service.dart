@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:get/get.dart' hide Response;
+import 'package:transitops_frontend/config/api_config.dart';
 import 'storage_service.dart';
 import 'access_control_service.dart';
 
@@ -13,7 +14,7 @@ class AuthService extends GetxService {
   late final Dio _dio;
   
   // Base configuration: Can be configured via environment variables
-  static const String baseUrl = 'http://localhost:3000/api';
+  static final String baseUrl = '${ApiConfig.baseUrl.replaceAll(RegExp(r'/$'), '')}/api';
 
   @override
   void onInit() {
