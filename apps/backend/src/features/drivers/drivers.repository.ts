@@ -221,7 +221,8 @@ export class DriversRepository {
             licenseExpiryDate: input.licenseExpiryDate,
             safetyScore: input.safetyScore,
             status: input.status,
-            retiredAt: (input.status as string) === "RETIRED" ? new Date() : null,
+            retiredAt:
+              (input.status as string) === "RETIRED" ? new Date() : null,
           },
           include: {
             user: {
@@ -312,7 +313,8 @@ export class DriversRepository {
             licenseExpiryDate: input.licenseExpiryDate,
             safetyScore: input.safetyScore,
             status: input.status,
-            retiredAt: (input.status as string) === "RETIRED" ? new Date() : null,
+            retiredAt:
+              (input.status as string) === "RETIRED" ? new Date() : null,
           },
           include: {
             user: {

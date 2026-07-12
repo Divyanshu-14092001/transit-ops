@@ -41,6 +41,9 @@ class DashboardController extends GetxController {
   // Track expanded trip ID
   final RxnString expandedTripId = RxnString();
 
+  // Reactive Maintenance List
+  final RxList<MaintenanceModel> maintenanceList = <MaintenanceModel>[].obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -100,6 +103,7 @@ class DashboardController extends GetxController {
 
     // Fetch vehicles from backend, or fall back to mock profiles
     await fetchVehicles();
+    await fetchMaintenance();
     if (vehiclesList.isEmpty) {
       vehiclesList.assignAll(<VehicleModel>[
         VehicleModel(
@@ -459,6 +463,72 @@ class DashboardController extends GetxController {
     }
   }
 
+  Future<void> fetchMaintenance() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/maintenance',
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null) {
+          List<dynamic> items = <dynamic>[];
+          if (data is List) {
+            items = data;
+          } else if (data is Map && data['items'] != null) {
+            items = data['items'] as List<dynamic>;
+          }
+          final List<MaintenanceModel> loaded = items
+              .map((dynamic item) => MaintenanceModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          maintenanceList.assignAll(loaded);
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
+    }
+  }
+
+  Future<bool> addMaintenance(MaintenanceModel record) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/maintenance',
+        data: record.toJson(),
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await fetchMaintenance();
+        await fetchVehicles();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> updateMaintenance(String id, Map<String, dynamic> data) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.put<dynamic>(
+        '/maintenance/$id',
+        data: data,
+      );
+      if (response.statusCode == 200) {
+        await fetchMaintenance();
+        await fetchVehicles();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<void> logout() async {
     await AuthService.to.logout();
     AppNavigator.replaceAllNamed<dynamic>(AppRoutes.login);
@@ -471,6 +541,8 @@ enum CapacityUnit { KILOGRAM, LITRE }
 enum VehicleStatus { AVAILABLE, ON_TRIP, IN_SHOP, RETIRED }
 
 class VehicleModel {
+  final String id;
+  final String? fleetId;
   final String name;
   final String number;
   final String registrationNumber;
@@ -483,6 +555,8 @@ class VehicleModel {
   final VehicleStatus status;
 
   VehicleModel({
+    this.id = '',
+    this.fleetId,
     required this.name,
     required this.number,
     required this.registrationNumber,
@@ -497,6 +571,8 @@ class VehicleModel {
 
   factory VehicleModel.fromJson(Map<String, dynamic> json) {
     return VehicleModel(
+      id: json['id'] as String? ?? '',
+      fleetId: json['fleetId'] as String?,
       name: json['vehicleNumber'] as String? ?? '',
       number: json['vehicleNumber'] as String? ?? '',
       registrationNumber: json['registrationNumber'] as String? ?? '',
@@ -642,4 +718,118 @@ class TripModel {
     required TripStatus initialStatus,
   })  : history = historyList.obs,
         status = initialStatus.obs;
+}
+
+// Maintenance Enums and Models
+enum MaintenanceType {
+  ROUTINE_SERVICE,
+  PREVENTIVE,
+  CORRECTIVE,
+  BREAKDOWN,
+  INSPECTION,
+  TYRE_REPLACEMENT,
+  ENGINE_REPAIR,
+  BODY_REPAIR,
+  OTHER
+}
+
+enum MaintenanceStatus {
+  SCHEDULED,
+  IN_PROGRESS,
+  COMPLETED,
+  CANCELLED,
+  ON_HOLD
+}
+
+class MaintenanceModel {
+  final String id;
+  final String? fleetId;
+  final String vehicleId;
+  final String vehicleNumber;
+  final MaintenanceType maintenanceType;
+  final String? description;
+  final MaintenanceStatus status;
+  final DateTime startedAt;
+  final DateTime? expectedCompletionAt;
+  final DateTime? completedAt;
+  final double? odometerReading;
+  final double? estimatedCost;
+  final double? actualCost;
+  final String? serviceProvider;
+  final String? invoiceNumber;
+  final String? notes;
+  final String? createdBy;
+  final String? updatedBy;
+
+  MaintenanceModel({
+    required this.id,
+    this.fleetId,
+    required this.vehicleId,
+    required this.vehicleNumber,
+    required this.maintenanceType,
+    this.description,
+    required this.status,
+    required this.startedAt,
+    this.expectedCompletionAt,
+    this.completedAt,
+    this.odometerReading,
+    this.estimatedCost,
+    this.actualCost,
+    this.serviceProvider,
+    this.invoiceNumber,
+    this.notes,
+    this.createdBy,
+    this.updatedBy,
+  });
+
+  factory MaintenanceModel.fromJson(Map<String, dynamic> json) {
+    final vehicle = json['vehicle'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final createdByUser = json['createdBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final updatedByUser = json['updatedBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    return MaintenanceModel(
+      id: json['id'] as String? ?? '',
+      fleetId: json['fleetId'] as String?,
+      vehicleId: json['vehicleId'] as String? ?? '',
+      vehicleNumber: vehicle['vehicleNumber'] as String? ?? json['vehicleNumber'] as String? ?? '',
+      maintenanceType: MaintenanceType.values.firstWhere(
+        (e) => e.name == json['maintenanceType'],
+        orElse: () => MaintenanceType.ROUTINE_SERVICE,
+      ),
+      description: json['description'] as String?,
+      status: MaintenanceStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => MaintenanceStatus.SCHEDULED,
+      ),
+      startedAt: DateTime.tryParse(json['startedAt'] as String? ?? '') ?? DateTime.now(),
+      expectedCompletionAt: DateTime.tryParse(json['expectedCompletionAt'] as String? ?? ''),
+      completedAt: DateTime.tryParse(json['completedAt'] as String? ?? ''),
+      odometerReading: double.tryParse(json['odometerReading']?.toString() ?? ''),
+      estimatedCost: double.tryParse(json['estimatedCost']?.toString() ?? ''),
+      actualCost: double.tryParse(json['actualCost']?.toString() ?? ''),
+      serviceProvider: json['serviceProvider'] as String?,
+      invoiceNumber: json['invoiceNumber'] as String?,
+      notes: json['notes'] as String?,
+      createdBy: createdByUser['fullName'] as String? ?? json['createdBy'] as String?,
+      updatedBy: updatedByUser['fullName'] as String? ?? json['updatedBy'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'vehicleId': vehicleId,
+      if (fleetId != null) 'fleetId': fleetId,
+      'maintenanceType': maintenanceType.name,
+      'description': description ?? '',
+      'status': status.name,
+      'startedAt': startedAt.toIso8601String(),
+      if (expectedCompletionAt != null) 'expectedCompletionAt': expectedCompletionAt!.toIso8601String(),
+      if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
+      if (odometerReading != null) 'odometerReading': odometerReading,
+      if (estimatedCost != null) 'estimatedCost': estimatedCost,
+      if (actualCost != null) 'actualCost': actualCost,
+      if (serviceProvider != null) 'serviceProvider': serviceProvider,
+      if (invoiceNumber != null) 'invoiceNumber': invoiceNumber,
+      if (notes != null) 'notes': notes,
+    };
+  }
 }
