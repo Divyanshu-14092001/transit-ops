@@ -1,0 +1,39 @@
+{
+  "name": "transitops-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "TransitOps - Smart Transport Operations Platform Monorepo",
+  "workspaces": [
+    "apps/backend",
+    "packages/shared"
+  ],
+  "scripts": {
+    "bootstrap": "npm install",
+    "backend:dev": "npm run dev -w apps/backend",
+    "backend:build": "npm run build -w apps/backend",
+    "backend:lint": "npm run lint -w apps/backend",
+    "backend:format": "npm run format -w apps/backend",
+    "shared:build": "npm run build -w packages/shared",
+    "shared:lint": "npm run lint -w packages/shared",
+    "shared:format": "npm run format -w packages/shared",
+    "lint": "npm run backend:lint && npm run shared:lint",
+    "format": "npm run backend:format && npm run shared:format"
+  },
+  "keywords": [
+    "odoo",
+    "hackathon",
+    "transitops",
+    "monorepo"
+  ],
+  "author": "Hackathon Team",
+  "license": "ISC",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "prettier": "^3.2.5",
+    "typescript": "^5.2.2"
+  }
+}

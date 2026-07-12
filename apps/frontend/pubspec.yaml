@@ -1,0 +1,31 @@
+name: transitops_frontend
+description: TransitOps - Smart Transport Operations Platform Frontend App
+version: 0.0.1+1
+
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management, DI and Router
+  get: ^4.6.6
+
+  # Networking
+  dio: ^5.4.1
+
+  # Google Fonts for modern design aesthetics
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Linting rules
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,29 @@
+// Prisma schema for TransitOps
+// Database design will target PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Below is a reference template model showcasing standard engineering standards:
+// - Primary key (UUID preferred)
+// - Unique constraints where needed
+// - Indexes for optimized querying
+// - Soft-delete flags
+// - Audit timestamps (createdAt, updatedAt)
+
+model ReferenceTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([isDeleted])
+}
