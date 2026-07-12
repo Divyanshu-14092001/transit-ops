@@ -40,21 +40,15 @@ class TripsView extends GetView<DashboardController> {
                           case TripStatus.DRAFT:
                             statusColor = Colors.grey;
                             break;
-                          case TripStatus.ASSIGNED:
-                          case TripStatus.PLANNED:
-                          case TripStatus.READY:
-                          case TripStatus.IN_PROGRESS:
+                          case TripStatus.DISPATCHED:
                             statusColor = Colors.blue;
                             break;
                           case TripStatus.COMPLETED:
                             statusColor = Colors.green;
                             break;
                           case TripStatus.CANCELLED:
-                          case TripStatus.FAILED:
                             statusColor = Colors.red;
                             break;
-                          default:
-                            statusColor = Colors.grey;
                         }
 
                         return Card(
@@ -78,7 +72,7 @@ class TripsView extends GetView<DashboardController> {
                                   Text(item.id, style: const TextStyle(fontWeight: FontWeight.bold)),
                                   const SizedBox(width: 12),
                                   StatusBadge(
-                                    status: item.status.value == TripStatus.ASSIGNED || item.status.value == TripStatus.IN_PROGRESS ? 'Dispatched' : (item.status.value == TripStatus.COMPLETED ? 'Completed' : (item.status.value == TripStatus.CANCELLED || item.status.value == TripStatus.FAILED ? 'Cancelled' : 'Draft')),
+                                    status: item.status.value == TripStatus.DISPATCHED ? 'Dispatched' : (item.status.value == TripStatus.COMPLETED ? 'Completed' : (item.status.value == TripStatus.CANCELLED ? 'Cancelled' : 'Draft')),
                                     color: statusColor,
                                   ),
                                 ]),
@@ -112,7 +106,7 @@ class TripsView extends GetView<DashboardController> {
     final ThemeData theme = Theme.of(context);
 
     final TripStatusHistory? draftHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.DRAFT);
-    final TripStatusHistory? dispHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.ASSIGNED);
+    final TripStatusHistory? dispHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.DISPATCHED);
     final TripStatusHistory? compHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.COMPLETED);
     final TripStatusHistory? cancHist = trip.history.firstWhereOrNull((TripStatusHistory h) => h.status == TripStatus.CANCELLED);
 
@@ -149,22 +143,22 @@ class TripsView extends GetView<DashboardController> {
                       label: 'Dispatch Trip',
                       icon: Icons.local_shipping_outlined,
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.ASSIGNED);
+                        controller.updateTripStatus(trip.id, TripStatus.DISPATCHED);
                         showActionSnackbar('Trip ${trip.id} dispatched!');
                       },
                     ),
-                  if (trip.status.value == TripStatus.ASSIGNED) ...<Widget>[
+                  if (trip.status.value == TripStatus.DISPATCHED) ...<Widget>[
                     AppButton(
                       label: 'Complete Trip',
                       icon: Icons.check,
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.COMPLETED);
+                        controller.updateTripStatus(trip.id, TripStatus.COMPLETED);
                         showActionSnackbar('Trip ${trip.id} marked as completed!');
                       },
                     ),
                     TextButton.icon(
                       onPressed: () {
-                        controller.updateTripStatus(controller.tripsList.indexOf(trip), TripStatus.CANCELLED);
+                        controller.updateTripStatus(trip.id, TripStatus.CANCELLED);
                         showActionSnackbar('Trip ${trip.id} cancelled.');
                       },
                       icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
@@ -212,12 +206,12 @@ class TripsView extends GetView<DashboardController> {
     final ThemeData theme = Theme.of(context);
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
-    final List<String> cities = <String>['Delhi', 'Mumbai', 'Pune', 'Bangalore', 'Chennai', 'Hyderabad'];
-    String selectedSource = cities[0];
-    String selectedDestination = cities[1];
+    final List<LocationModel> locations = controller.locationsList;
+    LocationModel? selectedSourceLoc = locations.isNotEmpty ? locations[0] : null;
+    LocationModel? selectedDestinationLoc = locations.length > 1 ? locations[1] : (locations.isNotEmpty ? locations[0] : null);
 
     final List<VehicleModel> availableVehicles = controller.vehiclesList.where((VehicleModel v) => v.status == VehicleStatus.AVAILABLE).toList();
-    final List<DriverModel> availableDrivers = controller.driversList.where((DriverModel d) => d.status == DriverStatus.AVAILABLE).toList();
+    final List<DriverModel> availableDrivers = controller.driversList.where((DriverModel d) => d.status == DriverStatus.AVAILABLE && d.licenseExpiryDate.isAfter(DateTime.now())).toList();
 
     VehicleModel? selectedVehicle = availableVehicles.isNotEmpty ? availableVehicles[0] : null;
     DriverModel? selectedDriver = availableDrivers.isNotEmpty ? availableDrivers[0] : null;
@@ -239,20 +233,74 @@ class TripsView extends GetView<DashboardController> {
                   StatefulBuilder(
                     builder: (BuildContext ctx, StateSetter setState) {
                       return Column(children: <Widget>[
-                        DropdownButtonFormField<String>(value: selectedSource, decoration: const InputDecoration(labelText: 'Source Location'), items: cities.map((String c) => DropdownMenuItem<String>(value: c, child: Text(c))).toList(), onChanged: (String? val) { if (val != null) setState(() => selectedSource = val); }),
+                        DropdownButtonFormField<LocationModel>(
+                          value: selectedSourceLoc,
+                          decoration: const InputDecoration(labelText: 'Source Location'),
+                          items: locations.map((LocationModel l) => DropdownMenuItem<LocationModel>(value: l, child: Text(l.name))).toList(),
+                          onChanged: (LocationModel? val) {
+                            if (val != null) setState(() => selectedSourceLoc = val);
+                          },
+                          validator: (LocationModel? val) => val == null ? 'Required' : null,
+                        ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(value: selectedDestination, decoration: const InputDecoration(labelText: 'Destination Location'), items: cities.map((String c) => DropdownMenuItem<String>(value: c, child: Text(c))).toList(), onChanged: (String? val) { if (val != null) setState(() => selectedDestination = val); }),
+                        DropdownButtonFormField<LocationModel>(
+                          value: selectedDestinationLoc,
+                          decoration: const InputDecoration(labelText: 'Destination Location'),
+                          items: locations.map((LocationModel l) => DropdownMenuItem<LocationModel>(value: l, child: Text(l.name))).toList(),
+                          onChanged: (LocationModel? val) {
+                            if (val != null) setState(() => selectedDestinationLoc = val);
+                          },
+                          validator: (LocationModel? val) => val == null ? 'Required' : null,
+                        ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<VehicleModel>(value: selectedVehicle, decoration: const InputDecoration(labelText: 'Select Available Vehicle'), items: availableVehicles.map((VehicleModel v) => DropdownMenuItem<VehicleModel>(value: v, child: Text('${v.name} (${v.number})'))).toList(), onChanged: (VehicleModel? val) { if (val != null) setState(() => selectedVehicle = val); }, validator: (VehicleModel? val) => val == null ? 'No vehicles available' : null),
+                        DropdownButtonFormField<VehicleModel>(
+                          value: selectedVehicle,
+                          decoration: const InputDecoration(labelText: 'Select Available Vehicle'),
+                          items: availableVehicles.map((VehicleModel v) => DropdownMenuItem<VehicleModel>(value: v, child: Text('${v.name} (${v.number})'))).toList(),
+                          onChanged: (VehicleModel? val) {
+                            if (val != null) setState(() => selectedVehicle = val);
+                          },
+                          validator: (VehicleModel? val) => val == null ? 'No vehicles available' : null,
+                        ),
                         const SizedBox(height: 12),
-                        DropdownButtonFormField<DriverModel>(value: selectedDriver, decoration: const InputDecoration(labelText: 'Select Available Driver'), items: availableDrivers.map((DriverModel d) => DropdownMenuItem<DriverModel>(value: d, child: Text(d.fullName))).toList(), onChanged: (DriverModel? val) { if (val != null) setState(() => selectedDriver = val); }, validator: (DriverModel? val) => val == null ? 'No drivers available' : null),
+                        DropdownButtonFormField<DriverModel>(
+                          value: selectedDriver,
+                          decoration: const InputDecoration(labelText: 'Select Available Driver'),
+                          items: availableDrivers.map((DriverModel d) => DropdownMenuItem<DriverModel>(value: d, child: Text(d.fullName))).toList(),
+                          onChanged: (DriverModel? val) {
+                            if (val != null) setState(() => selectedDriver = val);
+                          },
+                          validator: (DriverModel? val) => val == null ? 'No drivers available' : null,
+                        ),
                       ]);
                     },
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(controller: weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Cargo Weight (Kg)'), validator: (String? v) { if (v == null || v.trim().isEmpty) return 'Required'; if (double.tryParse(v) == null) return 'Must be a number'; return null; }),
+                  TextFormField(
+                    controller: weightCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Cargo Weight (Kg)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      final double? w = double.tryParse(v);
+                      if (w == null) return 'Must be a number';
+                      if (selectedVehicle != null && w > selectedVehicle!.maxLoadCapacity) {
+                        return 'Cargo weight exceeds vehicle capacity (${selectedVehicle!.maxLoadCapacity.toInt()} kg)';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: 12),
-                  TextFormField(controller: distanceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Planned Distance (km)'), validator: (String? v) { if (v == null || v.trim().isEmpty) return 'Required'; if (double.tryParse(v) == null) return 'Must be a number'; return null; }),
+                  TextFormField(
+                    controller: distanceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Planned Distance (km)'),
+                    validator: (String? v) {
+                      if (v == null || v.trim().isEmpty) return 'Required';
+                      if (double.tryParse(v) == null) return 'Must be a number';
+                      return null;
+                    },
+                  ),
                 ],
               ),
             ),
@@ -262,26 +310,35 @@ class TripsView extends GetView<DashboardController> {
           TextButton(onPressed: () => Get.back<dynamic>(), child: const Text('Cancel')),
           AppButton(
             label: 'Create Trip',
-            onPressed: () {
+            onPressed: () async {
               if (formKey.currentState?.validate() ?? false) {
-                if (selectedVehicle == null || selectedDriver == null) {
-                  showActionSnackbar('Please select an available vehicle and driver.');
+                if (selectedVehicle == null || selectedDriver == null || selectedSourceLoc == null || selectedDestinationLoc == null) {
+                  showActionSnackbar('Please select available locations, vehicle and driver.');
                   return;
                 }
-                final String newId = 'TR-${3090 + controller.tripsList.length + 5}';
-                controller.addTrip(TripModel(
-                  id: newId,
-                  source: selectedSource,
-                  destination: selectedDestination,
-                  vehicle: selectedVehicle!,
-                  driver: selectedDriver!,
-                  cargoWeight: double.parse(weightCtrl.text.trim()),
-                  plannedDistance: double.parse(distanceCtrl.text.trim()),
-                  initialStatus: TripStatus.DRAFT,
-                  historyList: <TripStatusHistory>[TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now(), changedBy: 'Fleet Manager')],
-                ));
+                
+                final String generatedTripNum = 'TRIP-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+                final Map<String, dynamic> tripData = <String, dynamic>{
+                  'tripNumber': generatedTripNum,
+                  'sourceLocationId': selectedSourceLoc!.id,
+                  'destinationLocationId': selectedDestinationLoc!.id,
+                  'vehicleId': selectedVehicle!.id,
+                  'driverId': selectedDriver!.id,
+                  'scheduledStartAt': DateTime.now().toUtc().toIso8601String(),
+                  'scheduledEndAt': DateTime.now().add(const Duration(hours: 4)).toUtc().toIso8601String(),
+                  'distance': double.parse(distanceCtrl.text.trim()),
+                  'distanceUnit': 'KM',
+                  'cargoWeight': double.parse(weightCtrl.text.trim()),
+                  'notes': 'Created via TransitOps frontend dashboard dialog',
+                };
+
+                final bool success = await controller.createTrip(tripData);
                 Get.back<dynamic>();
-                showActionSnackbar('Trip $newId created in Draft state!');
+                if (success) {
+                  showActionSnackbar('Trip $generatedTripNum created in Draft state!');
+                } else {
+                  showActionSnackbar('Failed to create trip. Please try again.');
+                }
               }
             },
           ),

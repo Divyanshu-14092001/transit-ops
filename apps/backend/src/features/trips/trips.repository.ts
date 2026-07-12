@@ -33,6 +33,18 @@ export class TripsRepository {
           vehicle: true,
           sourceLocation: true,
           destinationLocation: true,
+          statusLogs: {
+            include: {
+              updatedBy: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -150,6 +162,45 @@ export class TripsRepository {
           destinationLocation: true,
         },
       });
+
+      // Side effects on Vehicle and Driver Status as per business rules
+      if (newStatus === "DISPATCHED") {
+        await tx.vehicle.update({
+          where: { id: trip.vehicleId },
+          data: { status: "ON_TRIP" },
+        });
+        await tx.vehicleStatusLog.create({
+          data: {
+            vehicleId: trip.vehicleId,
+            statusFrom: "AVAILABLE",
+            statusTo: "ON_TRIP",
+            reason: "Trip Dispatched",
+            updatedById: userId,
+          },
+        });
+        await tx.driver.update({
+          where: { id: trip.driverId },
+          data: { status: "ON_TRIP" },
+        });
+      } else if (newStatus === "COMPLETED" || newStatus === "CANCELLED") {
+        await tx.vehicle.update({
+          where: { id: trip.vehicleId },
+          data: { status: "AVAILABLE" },
+        });
+        await tx.vehicleStatusLog.create({
+          data: {
+            vehicleId: trip.vehicleId,
+            statusFrom: "ON_TRIP",
+            statusTo: "AVAILABLE",
+            reason: newStatus === "COMPLETED" ? "Trip Completed" : "Trip Cancelled",
+            updatedById: userId,
+          },
+        });
+        await tx.driver.update({
+          where: { id: trip.driverId },
+          data: { status: "AVAILABLE" },
+        });
+      }
 
       await tx.tripStatusLog.create({
         data: {
