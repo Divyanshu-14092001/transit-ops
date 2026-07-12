@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:dio/dio.dart' as dio;
 import '../routes/app_routes.dart';
 import '../../core/services/auth_service.dart';
 
@@ -30,6 +31,8 @@ class DashboardController extends GetxController {
 
   // Reactive Drivers List
   final RxList<DriverModel> driversList = <DriverModel>[].obs;
+  final RxString driverSearchQuery = ''.obs;
+  final Rxn<DriverStatus> selectedDriverStatusFilter = Rxn<DriverStatus>();
 
   // Reactive Trips List
   final RxList<TripModel> tripsList = <TripModel>[].obs;
@@ -41,6 +44,10 @@ class DashboardController extends GetxController {
   void onInit() {
     super.onInit();
     fetchDashboardData();
+    
+    // Auto-fetch drivers when query or status filter changes
+    debounce<String>(driverSearchQuery, (_) => fetchDrivers(), time: const Duration(milliseconds: 300));
+    ever<DriverStatus?>(selectedDriverStatusFilter, (_) => fetchDrivers());
   }
 
   void selectModule(String module) {
@@ -141,58 +148,99 @@ class DashboardController extends GetxController {
       ),
     ]);
 
-    // Prepopulate drivers list
-    driversList.assignAll(<DriverModel>[
-      DriverModel(
-        fullName: 'Vikram Malhotra',
-        email: 'vikram@transitops.com',
-        contactNumber: '9876543210',
-        licenseNumber: 'DL-991823A',
-        licenseCategory: LicenseCategory.HMV,
-        licenseExpiryDate: DateTime(2030, 5, 12),
-        safetyScore: 95.0,
-        status: DriverStatus.Available,
-      ),
-      DriverModel(
-        fullName: 'John Doe',
-        email: 'john.doe@transitops.com',
-        contactNumber: '9812345670',
-        licenseNumber: 'DL-182309B',
-        licenseCategory: LicenseCategory.LMV,
-        licenseExpiryDate: DateTime(2028, 11, 22),
-        safetyScore: 88.0,
-        status: DriverStatus.OnTrip,
-      ),
-      DriverModel(
-        fullName: 'Rajesh Kumar',
-        email: 'rajesh@transitops.com',
-        contactNumber: '9718293810',
-        licenseNumber: 'DL-481923C',
-        licenseCategory: LicenseCategory.HMV,
-        licenseExpiryDate: DateTime(2027, 2, 15),
-        safetyScore: 91.0,
-        status: DriverStatus.OffDuty,
-      ),
-      DriverModel(
-        fullName: 'Sunita Sharma',
-        email: 'sunita@transitops.com',
-        contactNumber: '9923849102',
-        licenseNumber: 'DL-382910D',
-        licenseCategory: LicenseCategory.LMV,
-        licenseExpiryDate: DateTime(2025, 9, 8),
-        safetyScore: 78.5,
-        status: DriverStatus.Suspended,
-      ),
-    ]);
+    // Fetch drivers from backend, or fall back to mock profiles
+    await fetchDrivers();
+    if (driversList.isEmpty) {
+      driversList.assignAll(<DriverModel>[
+        DriverModel(
+          fullName: 'Vikram Malhotra',
+          email: 'vikram@transitops.com',
+          contactNumber: '9876543210',
+          employeeCode: 'DRV001',
+          licenseNumber: 'DL-991823A',
+          licenseCategory: LicenseCategory.HMV,
+          licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365 * 3)),
+          licenseExpiryDate: DateTime(2030, 5, 12),
+          safetyScore: 95.0,
+          status: DriverStatus.AVAILABLE,
+        ),
+        DriverModel(
+          fullName: 'John Doe',
+          email: 'john.doe@transitops.com',
+          contactNumber: '9812345670',
+          employeeCode: 'DRV002',
+          licenseNumber: 'DL-182309B',
+          licenseCategory: LicenseCategory.LMV,
+          licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365 * 3)),
+          licenseExpiryDate: DateTime(2028, 11, 22),
+          safetyScore: 88.0,
+          status: DriverStatus.ON_TRIP,
+        ),
+        DriverModel(
+          fullName: 'Rajesh Kumar',
+          email: 'rajesh@transitops.com',
+          contactNumber: '9718293810',
+          employeeCode: 'DRV003',
+          licenseNumber: 'DL-481923C',
+          licenseCategory: LicenseCategory.HMV,
+          licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365 * 3)),
+          licenseExpiryDate: DateTime(2027, 2, 15),
+          safetyScore: 91.0,
+          status: DriverStatus.AVAILABLE,
+        ),
+        DriverModel(
+          fullName: 'Sunita Sharma',
+          email: 'sunita@transitops.com',
+          contactNumber: '9923849102',
+          employeeCode: 'DRV004',
+          licenseNumber: 'DL-382910D',
+          licenseCategory: LicenseCategory.LMV,
+          licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365 * 3)),
+          licenseExpiryDate: DateTime(2025, 9, 8),
+          safetyScore: 78.5,
+          status: DriverStatus.SUSPENDED,
+        ),
+      ]);
+    }
 
-    // Prepopulate trips list
+    // Prepopulate trips list with safe bounds-checking lookups
+    final DriverModel fallbackDriver = driversList.isNotEmpty
+        ? driversList[0]
+        : DriverModel(
+            fullName: 'Vikram Malhotra',
+            email: 'vikram@transitops.com',
+            contactNumber: '9876543210',
+            employeeCode: 'DRV001',
+            licenseNumber: 'DL-991823A',
+            licenseCategory: LicenseCategory.HMV,
+            licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365)),
+            licenseExpiryDate: DateTime(2030, 5, 12),
+            safetyScore: 95.0,
+            status: DriverStatus.AVAILABLE,
+          );
+
+    final VehicleModel fallbackVehicle = vehiclesList.isNotEmpty
+        ? vehiclesList[0]
+        : VehicleModel(
+            name: 'Ashok Leyland Cargo 101',
+            number: 'MH-12-PQ-8901',
+            registrationNumber: 'REG-8901',
+            chasisNumber: 'CHS-091A82',
+            type: VehicleType.Truck,
+            maxLoadCapacity: 12000.0,
+            capacityUnit: CapacityUnit.Kg,
+            odometer: 45230.0,
+            acquisitionCost: 2800000.0,
+            status: VehicleStatus.Available,
+          );
+
     tripsList.assignAll(<TripModel>[
       TripModel(
         id: 'TR-3092',
         source: 'Pune',
         destination: 'Mumbai',
-        vehicle: vehiclesList[0],
-        driver: driversList[0],
+        vehicle: vehiclesList.isNotEmpty ? vehiclesList[0] : fallbackVehicle,
+        driver: driversList.isNotEmpty ? driversList[0] : fallbackDriver,
         cargoWeight: 8500.0,
         plannedDistance: 150.0,
         initialStatus: TripStatus.Dispatched,
@@ -205,8 +253,8 @@ class DashboardController extends GetxController {
         id: 'TR-3093',
         source: 'Delhi',
         destination: 'Noida',
-        vehicle: vehiclesList[1],
-        driver: driversList[1],
+        vehicle: vehiclesList.length > 1 ? vehiclesList[1] : fallbackVehicle,
+        driver: driversList.length > 1 ? driversList[1] : fallbackDriver,
         cargoWeight: 1200.0,
         plannedDistance: 45.0,
         initialStatus: TripStatus.Completed,
@@ -220,8 +268,8 @@ class DashboardController extends GetxController {
         id: 'TR-3094',
         source: 'Hyderabad',
         destination: 'Secunderabad',
-        vehicle: vehiclesList[2],
-        driver: driversList[2],
+        vehicle: vehiclesList.length > 2 ? vehiclesList[2] : fallbackVehicle,
+        driver: driversList.length > 2 ? driversList[2] : fallbackDriver,
         cargoWeight: 400.0,
         plannedDistance: 25.0,
         initialStatus: TripStatus.Cancelled,
@@ -245,13 +293,74 @@ class DashboardController extends GetxController {
     return true;
   }
 
-  bool addDriver(DriverModel driver) {
-    if (driversList.any((DriverModel d) =>
-        d.licenseNumber.trim().toLowerCase() == driver.licenseNumber.trim().toLowerCase())) {
+  Future<bool> addDriver(DriverModel driver) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/drivers',
+        data: driver.toJson(),
+      );
+      if (response.statusCode == 200) {
+        await fetchDrivers();
+        return true;
+      }
       return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
     }
-    driversList.add(driver);
-    return true;
+  }
+
+  Future<void> fetchDrivers() async {
+    try {
+      final Map<String, dynamic> queryParameters = <String, dynamic>{};
+      if (driverSearchQuery.value.isNotEmpty) {
+        queryParameters['search'] = driverSearchQuery.value;
+      }
+      if (selectedDriverStatusFilter.value != null) {
+        queryParameters['status'] = selectedDriverStatusFilter.value!.name;
+      }
+
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/drivers',
+        queryParameters: queryParameters,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null && data['items'] != null) {
+          final List<dynamic> items = data['items'] as List<dynamic>;
+          final List<DriverModel> loadedDrivers = items
+              .map((dynamic item) => DriverModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          driversList.assignAll(loadedDrivers);
+        }
+      }
+    } catch (e) {
+      // Keep existing local list if API fails (e.g. offline fallback)
+    }
+  }
+
+  Future<DriverModel?> checkLicense(String licenseNumber) async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>(
+        '/drivers',
+        queryParameters: <String, String>{'licenseNumber': licenseNumber.trim()},
+      );
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null && data['items'] != null) {
+          final List<dynamic> items = data['items'] as List<dynamic>;
+          if (items.isNotEmpty) {
+            return DriverModel.fromJson(items.first as Map<String, dynamic>);
+          }
+        }
+      }
+    } catch (e) {
+      // Error checking license
+    }
+    return null;
   }
 
   bool addTrip(TripModel trip) {
@@ -313,15 +422,17 @@ class VehicleModel {
 }
 
 // Driver Enums and Models
-enum DriverStatus { Available, OnTrip, OffDuty, Suspended }
-enum LicenseCategory { LMV, HMV }
+enum DriverStatus { AVAILABLE, ASSIGNED, ON_TRIP, ON_LEAVE, SUSPENDED, INACTIVE, RETIRED }
+enum LicenseCategory { LMV, HMV, TRANSPORT, COMMERCIAL, OTHER }
 
 class DriverModel {
   final String fullName;
   final String email;
   final String contactNumber;
+  final String employeeCode;
   final String licenseNumber;
   final LicenseCategory licenseCategory;
+  final DateTime licenseIssuedAt;
   final DateTime licenseExpiryDate;
   final double safetyScore;
   final DriverStatus status;
@@ -330,12 +441,51 @@ class DriverModel {
     required this.fullName,
     required this.email,
     required this.contactNumber,
+    required this.employeeCode,
     required this.licenseNumber,
     required this.licenseCategory,
+    required this.licenseIssuedAt,
     required this.licenseExpiryDate,
     required this.safetyScore,
     required this.status,
   });
+
+  factory DriverModel.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> user = json['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    return DriverModel(
+      fullName: user['fullName'] as String? ?? json['fullName'] as String? ?? '',
+      email: user['email'] as String? ?? json['email'] as String? ?? '',
+      contactNumber: user['contactNumber'] as String? ?? json['contactNumber'] as String? ?? '',
+      employeeCode: json['employeeCode'] as String? ?? '',
+      licenseNumber: json['licenseNumber'] as String? ?? '',
+      licenseCategory: LicenseCategory.values.firstWhere(
+        (LicenseCategory e) => e.name == (json['licenseCategory'] as String? ?? 'LMV').toUpperCase(),
+        orElse: () => LicenseCategory.LMV,
+      ),
+      licenseIssuedAt: DateTime.tryParse(json['licenseIssuedAt'] as String? ?? '') ?? DateTime.now(),
+      licenseExpiryDate: DateTime.tryParse(json['licenseExpiryDate'] as String? ?? '') ?? DateTime.now(),
+      safetyScore: double.tryParse(json['safetyScore']?.toString() ?? '') ?? 100.0,
+      status: DriverStatus.values.firstWhere(
+        (DriverStatus e) => e.name == (json['status'] as String? ?? 'AVAILABLE').toUpperCase(),
+        orElse: () => DriverStatus.AVAILABLE,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'fullName': fullName,
+      'email': email,
+      'contactNumber': contactNumber,
+      'employeeCode': employeeCode,
+      'licenseNumber': licenseNumber,
+      'licenseCategory': licenseCategory.name,
+      'licenseIssuedAt': licenseIssuedAt.toIso8601String(),
+      'licenseExpiryDate': licenseExpiryDate.toIso8601String(),
+      'safetyScore': safetyScore,
+      'status': status.name,
+    };
+  }
 }
 
 // Trip Enums and Models

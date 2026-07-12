@@ -6,5 +6,6 @@ const router = Router();
 const controller = new DriversController();
 
 router.get("/", authenticateToken, controller.getDrivers);
+router.post("/", authenticateToken, controller.createOrUpdateDriver);
 
 export const driversRouter = router;

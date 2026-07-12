@@ -15,6 +15,7 @@ class AuthService extends GetxService {
   final RxnString lastError = RxnString();
 
   late final Dio _dio;
+  Dio get dio => _dio;
 
   static final String baseUrl =
       '${ApiConfig.baseUrl}/api';
