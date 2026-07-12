@@ -241,6 +241,135 @@ async function main() {
     },
   });
 
+  // Seeding Fleet Manager
+  console.log("Seeding Fleet Manager...");
+  const managerPasswordHash = bcrypt.hashSync("SecurePassword123", 10);
+  const managerUser = await prisma.user.upsert({
+    where: { email: "manager@transitops.com" },
+    update: { passwordHash: managerPasswordHash },
+    create: {
+      email: "manager@transitops.com",
+      fullName: "Fleet Manager",
+      passwordHash: managerPasswordHash,
+      contactNumber: "+919876543212",
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userOrganization.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000003" },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000003",
+      userId: managerUser.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_organizationId: {
+        userId: managerUser.id,
+        roleId: dbRoles["FLEET_MANAGER"].id,
+        organizationId: org.id,
+      },
+    },
+    update: { isActive: true },
+    create: {
+      userId: managerUser.id,
+      roleId: dbRoles["FLEET_MANAGER"].id,
+      organizationId: org.id,
+      isActive: true,
+    },
+  });
+
+  // Seeding Safety Officer
+  console.log("Seeding Safety Officer...");
+  const safetyPasswordHash = bcrypt.hashSync("SecurePassword123", 10);
+  const safetyUser = await prisma.user.upsert({
+    where: { email: "safety@transitops.com" },
+    update: { passwordHash: safetyPasswordHash },
+    create: {
+      email: "safety@transitops.com",
+      fullName: "Safety Officer",
+      passwordHash: safetyPasswordHash,
+      contactNumber: "+919876543213",
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userOrganization.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000004" },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000004",
+      userId: safetyUser.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_organizationId: {
+        userId: safetyUser.id,
+        roleId: dbRoles["SAFETY_OFFICER"].id,
+        organizationId: org.id,
+      },
+    },
+    update: { isActive: true },
+    create: {
+      userId: safetyUser.id,
+      roleId: dbRoles["SAFETY_OFFICER"].id,
+      organizationId: org.id,
+      isActive: true,
+    },
+  });
+
+  // Seeding Financial Analyst
+  console.log("Seeding Financial Analyst...");
+  const financePasswordHash = bcrypt.hashSync("SecurePassword123", 10);
+  const financeUser = await prisma.user.upsert({
+    where: { email: "finance@transitops.com" },
+    update: { passwordHash: financePasswordHash },
+    create: {
+      email: "finance@transitops.com",
+      fullName: "Financial Analyst",
+      passwordHash: financePasswordHash,
+      contactNumber: "+919876543214",
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userOrganization.upsert({
+    where: { id: "00000000-0000-0000-0000-000000000005" },
+    update: { status: "ACTIVE" },
+    create: {
+      id: "00000000-0000-0000-0000-000000000005",
+      userId: financeUser.id,
+      organizationId: org.id,
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_organizationId: {
+        userId: financeUser.id,
+        roleId: dbRoles["FINANCIAL_ANALYST"].id,
+        organizationId: org.id,
+      },
+    },
+    update: { isActive: true },
+    create: {
+      userId: financeUser.id,
+      roleId: dbRoles["FINANCIAL_ANALYST"].id,
+      organizationId: org.id,
+      isActive: true,
+    },
+  });
+
   // 4. Seed Locations from locations.json
   console.log("Seeding Indian states and cities...");
   const locationsFilePath = path.join(__dirname, "data", "locations.json");
