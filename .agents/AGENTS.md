@@ -45,6 +45,8 @@ To support structured development, we use a 2-branch model (`main` and `dev`):
 - **Design System:** Use a consistent color palette, spacing, and typography (via `google_fonts`) across the Flutter app.
 - **Responsive Layouts:** Use `MediaQuery`, `LayoutBuilder`, or flexible widgets to ensure the UI adapts correctly to different screen sizes.
 - **Intuitive Navigation:** Design menus, bottom navigation bars, and drawers that make logical sense. Keep the user flow simple and responsive with visual cues/loaders during API calls.
+- **Reusable Components:** Prioritize using and extending existing core widgets under `lib/core/widgets/` (e.g., `AccessControl`, `LoadingOverlay`, `ResponsiveLayout`, `AppButton`, `AppTextField`, `DashboardCard`, `StatisticTile`, `EmptyState`, `StatusBadge`, and `PermissionAwareFAB`). Do not create duplicate widgets or ad-hoc overrides for these functions.
+- **Currency Standard:** Always represent currency amounts using the Indian Rupee symbol (`₹`) in all views, widgets, mock data, and documentation. Never use the Dollar symbol (`$`).
 
 ### D. Performance, Security & Usability
 - **Error Handling:** Gracefully handle errors on both backend and frontend. Show helpful user-facing errors while logging detailed technical errors.

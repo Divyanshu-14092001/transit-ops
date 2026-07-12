@@ -1,14 +1,14 @@
 import dotenv from "dotenv";
-import app from "./app.js";
+import app from "./app";
 
 // Load Environment Variables
 dotenv.config();
 
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT) || 3000;
 
 function startServer() {
   try {
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
       // eslint-disable-next-line no-console
       console.log(`[TransitOps Server] Running on http://localhost:${PORT}`);
     });

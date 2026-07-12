@@ -3,16 +3,43 @@ import cors from "cors";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { HTTP_STATUS } from "@transitops/shared";
+import { authRouter } from "./features/auth/auth.routes";
+import { driversRouter } from "./features/drivers/drivers.routes";
 
 const app = express();
 
 // Security Middlewares
 app.use(helmet());
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN,
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "http://localhost:8080",
+  "http://localhost:5500",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5000",
+  "http://127.0.0.1:8080",
+].filter(Boolean) as string[];
+
+const cleanAllowedOrigins = allowedOrigins.map((origin) => origin.replace(/\/$/, ""));
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      const cleanOrigin = origin.replace(/\/$/, "");
+      if (cleanAllowedOrigins.includes(cleanOrigin) || cleanAllowedOrigins.includes("*")) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   }),
 );
 
@@ -32,10 +59,15 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
+// API Routes
+app.use("/api/auth", authRouter);
+app.use("/api/drivers", driversRouter);
+
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {
   res.status(HTTP_STATUS.OK).json({
-    status: "success",
+    status: "ok",
+    message: "Backend is running",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
