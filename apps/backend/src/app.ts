@@ -5,6 +5,7 @@ import { rateLimit } from "express-rate-limit";
 import { HTTP_STATUS } from "@transitops/shared";
 import { authRouter } from "./features/auth/auth.routes";
 import { driversRouter } from "./features/drivers/drivers.routes";
+import { vehiclesRouter } from "./features/vehicles/vehicles.routes";
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use("/api/", limiter);
 // API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/drivers", driversRouter);
+app.use("/api/vehicles", vehiclesRouter);
 
 // Root Health Check Route
 app.get("/health", (_req: Request, res: Response) => {
