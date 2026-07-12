@@ -38,6 +38,9 @@ class DashboardController extends GetxController {
   // Reactive Trips List
   final RxList<TripModel> tripsList = <TripModel>[].obs;
 
+  // Reactive Locations List
+  final RxList<LocationModel> locationsList = <LocationModel>[].obs;
+
   // Track expanded trip ID
   final RxnString expandedTripId = RxnString();
 
@@ -212,83 +215,11 @@ class DashboardController extends GetxController {
       ]);
     }
 
-    // Prepopulate trips list with safe bounds-checking lookups
-    final DriverModel fallbackDriver = driversList.isNotEmpty
-        ? driversList[0]
-        : DriverModel(
-            fullName: 'Vikram Malhotra',
-            email: 'vikram@transitops.com',
-            contactNumber: '9876543210',
-            employeeCode: 'DRV001',
-            licenseNumber: 'DL-991823A',
-            licenseCategory: LicenseCategory.HMV,
-            licenseIssuedAt: DateTime.now().subtract(const Duration(days: 365)),
-            licenseExpiryDate: DateTime(2030, 5, 12),
-            safetyScore: 95.0,
-            status: DriverStatus.AVAILABLE,
-          );
+    // Fetch locations from backend
+    await fetchLocations();
 
-    final VehicleModel fallbackVehicle = vehiclesList.isNotEmpty
-        ? vehiclesList[0]
-        : VehicleModel(
-            name: 'Ashok Leyland Cargo 101',
-            number: 'MH-12-PQ-8901',
-            registrationNumber: 'REG-8901',
-            chasisNumber: 'CHS-091A82',
-            type: VehicleType.TRUCK,
-            maxLoadCapacity: 12000.0,
-            capacityUnit: CapacityUnit.KILOGRAM,
-            odometer: 45230.0,
-            acquisitionCost: 2800000.0,
-            status: VehicleStatus.AVAILABLE,
-          );
-
-    tripsList.assignAll(<TripModel>[
-      TripModel(
-        id: 'TR-3092',
-        source: 'Pune',
-        destination: 'Mumbai',
-        vehicle: vehiclesList.isNotEmpty ? vehiclesList[0] : fallbackVehicle,
-        driver: driversList.isNotEmpty ? driversList[0] : fallbackDriver,
-        cargoWeight: 8500.0,
-        plannedDistance: 150.0,
-        initialStatus: TripStatus.ASSIGNED,
-        historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(hours: 2)), changedBy: 'Fleet Manager'),
-        ],
-      ),
-      TripModel(
-        id: 'TR-3093',
-        source: 'Delhi',
-        destination: 'Noida',
-        vehicle: vehiclesList.length > 1 ? vehiclesList[1] : fallbackVehicle,
-        driver: driversList.length > 1 ? driversList[1] : fallbackDriver,
-        cargoWeight: 1200.0,
-        plannedDistance: 45.0,
-        initialStatus: TripStatus.COMPLETED,
-        historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 5)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 4)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.COMPLETED, timestamp: DateTime.now().subtract(const Duration(days: 1, hours: 1)), changedBy: 'Fleet Manager'),
-        ],
-      ),
-      TripModel(
-        id: 'TR-3094',
-        source: 'Hyderabad',
-        destination: 'Secunderabad',
-        vehicle: vehiclesList.length > 2 ? vehiclesList[2] : fallbackVehicle,
-        driver: driversList.length > 2 ? driversList[2] : fallbackDriver,
-        cargoWeight: 400.0,
-        plannedDistance: 25.0,
-        initialStatus: TripStatus.CANCELLED,
-        historyList: <TripStatusHistory>[
-          TripStatusHistory(status: TripStatus.DRAFT, timestamp: DateTime.now().subtract(const Duration(hours: 6)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.ASSIGNED, timestamp: DateTime.now().subtract(const Duration(hours: 5)), changedBy: 'Fleet Manager'),
-          TripStatusHistory(status: TripStatus.CANCELLED, timestamp: DateTime.now().subtract(const Duration(hours: 4)), changedBy: 'Fleet Manager'),
-        ],
-      ),
-    ]);
+    // Fetch trips from backend
+    await fetchTrips();
 
     isLoading.value = false;
   }
@@ -442,24 +373,83 @@ class DashboardController extends GetxController {
     return null;
   }
 
-  bool addTrip(TripModel trip) {
-    if (tripsList.any((TripModel t) => t.id.toLowerCase() == trip.id.toLowerCase())) {
+  Future<bool> createTrip(Map<String, dynamic> tripData) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.post<dynamic>(
+        '/trips',
+        data: tripData,
+      );
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        await fetchTrips();
+        await fetchVehicles();
+        await fetchDrivers();
+        return true;
+      }
       return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
     }
-    tripsList.add(trip);
-    return true;
   }
 
-  void updateTripStatus(int index, TripStatus newStatus) {
-    if (index >= 0 && index < tripsList.length) {
-      final TripModel trip = tripsList[index];
-      trip.status.value = newStatus;
-      trip.history.add(TripStatusHistory(
-        status: newStatus,
-        timestamp: DateTime.now(),
-        changedBy: 'Fleet Manager',
-      ));
-      tripsList[index] = trip;
+  Future<bool> updateTripStatus(String tripId, TripStatus newStatus) async {
+    try {
+      isLoading.value = true;
+      final dio.Response<dynamic> response = await AuthService.to.dio.patch<dynamic>(
+        '/trips/$tripId/status',
+        data: <String, String>{
+          'status': newStatus.name,
+          'reason': 'Status updated from app',
+        },
+      );
+      if (response.statusCode == 200) {
+        await fetchTrips();
+        await fetchVehicles();
+        await fetchDrivers();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchTrips() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>('/trips');
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data != null && data['trips'] != null) {
+          final List<dynamic> items = data['trips'] as List<dynamic>;
+          final List<TripModel> loadedTrips = items
+              .map((dynamic item) => TripModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          tripsList.assignAll(loadedTrips);
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
+    }
+  }
+
+  Future<void> fetchLocations() async {
+    try {
+      final dio.Response<dynamic> response = await AuthService.to.dio.get<dynamic>('/locations');
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic data = response.data['data'];
+        if (data is List) {
+          final List<LocationModel> loadedLocations = data
+              .map((dynamic item) => LocationModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          locationsList.assignAll(loadedLocations);
+        }
+      }
+    } catch (e) {
+      // Keep existing list on failure
     }
   }
 
@@ -597,6 +587,7 @@ class VehicleModel {
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
+      'id': id,
       'vehicleNumber': number,
       'registrationNumber': registrationNumber,
       'chassisNumber': chasisNumber,
@@ -618,6 +609,7 @@ enum DriverStatus { AVAILABLE, ON_TRIP, OFF_DUTY, SUSPENDED }
 enum LicenseCategory { LMV, HMV, TRANSPORT, COMMERCIAL, OTHER }
 
 class DriverModel {
+  final String id;
   final String fullName;
   final String email;
   final String contactNumber;
@@ -630,6 +622,7 @@ class DriverModel {
   final DriverStatus status;
 
   DriverModel({
+    this.id = '',
     required this.fullName,
     required this.email,
     required this.contactNumber,
@@ -645,6 +638,7 @@ class DriverModel {
   factory DriverModel.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic> user = json['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
     return DriverModel(
+      id: json['id'] as String? ?? '',
       fullName: user['fullName'] as String? ?? json['fullName'] as String? ?? '',
       email: user['email'] as String? ?? json['email'] as String? ?? '',
       contactNumber: user['contactNumber'] as String? ?? json['contactNumber'] as String? ?? '',
@@ -666,6 +660,7 @@ class DriverModel {
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
+      'id': id,
       'fullName': fullName,
       'email': email,
       'contactNumber': contactNumber,
@@ -680,8 +675,32 @@ class DriverModel {
   }
 }
 
+// Location Model
+class LocationModel {
+  final String id;
+  final String name;
+  final String code;
+  final String type;
+
+  LocationModel({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.type,
+  });
+
+  factory LocationModel.fromJson(Map<String, dynamic> json) {
+    return LocationModel(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      code: json['code'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+    );
+  }
+}
+
 // Trip Enums and Models
-enum TripStatus { DRAFT, PLANNED, ASSIGNED, READY, IN_PROGRESS, COMPLETED, CANCELLED, DELAYED, FAILED }
+enum TripStatus { DRAFT, DISPATCHED, COMPLETED, CANCELLED }
 
 class TripStatusHistory {
   final TripStatus status;
@@ -718,6 +737,42 @@ class TripModel {
     required TripStatus initialStatus,
   })  : history = historyList.obs,
         status = initialStatus.obs;
+
+  factory TripModel.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> vehicleJson = json['vehicle'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> driverJson = json['driver'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> sourceLocation = json['sourceLocation'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> destinationLocation = json['destinationLocation'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final List<dynamic> logs = json['statusLogs'] as List<dynamic>? ?? <dynamic>[];
+
+    final List<TripStatusHistory> historyList = logs.map((dynamic l) {
+      final Map<String, dynamic> logMap = l as Map<String, dynamic>;
+      final Map<String, dynamic> updatedBy = logMap['updatedBy'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      return TripStatusHistory(
+        status: TripStatus.values.firstWhere(
+          (e) => e.name == logMap['statusTo'],
+          orElse: () => TripStatus.DRAFT,
+        ),
+        timestamp: DateTime.tryParse(logMap['createdAt'] as String? ?? '') ?? DateTime.now(),
+        changedBy: updatedBy['fullName'] as String? ?? 'System',
+      );
+    }).toList();
+
+    return TripModel(
+      id: json['id'] as String? ?? '',
+      source: sourceLocation['name'] as String? ?? '',
+      destination: destinationLocation['name'] as String? ?? '',
+      vehicle: VehicleModel.fromJson(vehicleJson),
+      driver: DriverModel.fromJson(driverJson),
+      cargoWeight: double.tryParse(json['cargoWeight']?.toString() ?? '') ?? 0.0,
+      plannedDistance: double.tryParse(json['distance']?.toString() ?? '') ?? 0.0,
+      historyList: historyList,
+      initialStatus: TripStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => TripStatus.DRAFT,
+      ),
+    );
+  }
 }
 
 // Maintenance Enums and Models
