@@ -232,15 +232,11 @@ class HomeView extends GetView<DashboardController> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                _buildBar(context, day: 'Mon', value: 82),
-                _buildBar(context, day: 'Tue', value: 80),
-                _buildBar(context, day: 'Wed', value: 85),
-                _buildBar(context, day: 'Thu', value: 88),
-                _buildBar(context, day: 'Fri', value: 83),
-                _buildBar(context, day: 'Sat', value: 75),
-                _buildBar(context, day: 'Sun', value: 70),
-              ],
+              children: controller.utilizationTrends.map((Map<String, dynamic> trend) {
+                final String day = trend['day']?.toString() ?? '';
+                final double val = double.tryParse(trend['value']?.toString() ?? '') ?? 0.0;
+                return _buildBar(context, day: day, value: val);
+              }).toList(),
             ),
           ),
         ],
